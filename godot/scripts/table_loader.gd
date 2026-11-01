@@ -41,13 +41,60 @@ static func load_table() -> Node3D:
 
 ## Walk the loaded table and give every mesh a static trimesh collider.
 ## Returns how many it made, so the smoke test can assert it is not zero.
-static func add_collision(root: Node) -> int:
+static func add_collision(root: Node, skip_prefixes: Array = []) -> int:
 	var made := 0
 	for node in _walk(root):
-		if node is MeshInstance3D and node.mesh != null:
-			node.create_trimesh_collision()
-			made += 1
+		if not (node is MeshInstance3D) or node.mesh == null:
+			continue
+		var skipped := false
+		for prefix in skip_prefixes:
+			if node.name.begins_with(prefix):
+				skipped = true
+				break
+		if skipped:
+			continue
+		node.create_trimesh_collision()
+		_make_solid_both_ways(node)
+		made += 1
 	return made
+
+
+## A ConcavePolygonShape3D only collides on the front of each triangle, so a
+## part whose winding came out mirrored is a one-way wall — a ball inside the
+## table passes straight through it. The left-hand parts are built by
+## mirroring the right-hand ones, so make every trimesh solid from both
+## sides rather than depending on which way a face happens to point.
+static func _make_solid_both_ways(node: Node) -> void:
+	for child in node.get_children():
+		if not (child is StaticBody3D):
+			continue
+		for shape_node in child.get_children():
+			if shape_node is CollisionShape3D and shape_node.shape is ConcavePolygonShape3D:
+				shape_node.shape.backface_collision = true
+
+
+## The time-bar gate, if the model has one. It is modelled sitting in its
+## slot — which is where it goes when the game is over — so the game lifts it
+## out at the start and drops it back in when time runs out.
+static func gate_parts(root: Node) -> Array:
+	var out: Array = []
+	for node in _walk(root):
+		if node is MeshInstance3D and node.name.begins_with("time_bar_gate"):
+			out.append(node)
+	return out
+
+
+## The table's overall extent, for sizing the desk it clamps to.
+static func bounds(root: Node) -> AABB:
+	var box := AABB()
+	var first := true
+	for node in _walk(root):
+		if not (node is MeshInstance3D) or node.mesh == null:
+			continue
+		var m: AABB = node.global_transform * node.mesh.get_aabb()
+		box = m if first else box.merge(m)
+		first = false
+	return box
 
 
 ## Hole positions come from the layout file rather than the mesh, because a

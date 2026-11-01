@@ -537,12 +537,12 @@ def design(spec: Spec) -> Design:
                               pr.max_strip(1.0 + d.ledge))
     cuts["wall_y"], cuts["ledge_y"] = wall_edges, ledge_edges
     for side, sign in (("right", 1), ("left", -1)):
-        prof = C.place(wall_prof, d.xi, 0.0, sign)
+        prof = C.place(wall_prof, sign * d.xi, 0.0, sign)
         for k, (a, b) in enumerate(zip(wall_edges, wall_edges[1:])):
             parts.add(f"side_wall_{side}_{k + 1}", C.strip(prof, a, b, "xz"),
                       role="frame", colour=spec.hue("frame"),
                       note="stands on its own flange; piece _1 is the front")
-        lp = C.place(ledge_prof, d.xi, 0.0, sign)
+        lp = C.place(ledge_prof, sign * d.xi, 0.0, sign)
         for k, (a, b) in enumerate(zip(ledge_edges, ledge_edges[1:])):
             parts.add(f"ledge_strip_{side}_{k + 1}", C.strip(lp, a, b, "xz"),
                       role="frame", colour=spec.hue("frame"),
@@ -593,7 +593,7 @@ def design(spec: Spec) -> Design:
     rail_edges = C.plan_cuts(d.y_fb0, d.y_bw1, pr.max_strip(d.rail_h))
     cuts["rail_y"] = rail_edges
     for side, sign in (("right", 1), ("left", -1)):
-        prof = C.place(rail_prof, d.x_face, d.zt, sign)
+        prof = C.place(rail_prof, sign * d.x_face, d.zt, sign)
         for k, (a, b) in enumerate(zip(rail_edges, rail_edges[1:])):
             parts.add(f"rail_side_{side}_{k + 1}", C.strip(prof, a, b, "xz"),
                       role="rail", colour=spec.hue("rail"), pose=("y", 90 * sign),
@@ -761,17 +761,18 @@ def coupon(spec: Spec) -> Design:
               note="a corner of the real slab: checks thickness, flatness and the "
                    "hole over felt")
 
-    wall_prof = C.place(C.wall_profile(d.wall, d.zt, d.flange, d.flange_t), d.xi, 0.0, -1)
+    wall_prof = C.place(C.wall_profile(d.wall, d.zt, d.flange, d.flange_t),
+                        -d.xi, 0.0, -1)
     parts.add("test_wall", C.strip(wall_prof, 0, run, "xz"), role="test", colour=hue,
               note="checks wall height against the slab and the clamp flange")
-    ledge_prof = C.place(C.ledge_profile(d.ledge, d.zp, 1.0), d.xi, 0.0, -1)
+    ledge_prof = C.place(C.ledge_profile(d.ledge, d.zp, 1.0), -d.xi, 0.0, -1)
     parts.add("test_ledge", C.strip(ledge_prof, 2, run - 2, "xz"), role="test",
               colour=hue, pose=("y", -90), note="glue to the test wall, then rest the "
               "corner tile on it: the surface should land flush with the wall top")
 
     rail_prof = C.place(C.grooved_rail_profile(d.xo - d.x_face, d.rail_h,
                                                d.cush_z - d.zt, d.groove_r),
-                        d.x_face, d.zt, -1)
+                        -d.x_face, d.zt, -1)
     parts.add("test_rail", C.strip(rail_prof, 0, run, "xz"), role="test", colour=hue,
               pose=("y", -90),
               note=f"press {d.cord:.1f} mm cord into the groove; the nose should touch a "

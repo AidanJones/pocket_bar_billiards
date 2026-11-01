@@ -50,7 +50,10 @@ def main(argv=None) -> int:
         if run(export, cwd=REPO):
             return 1
 
-    ticks = int(args.seconds * 60)
+    # Only a safety net: the test quits itself when it has run every hole.
+    # Headless Godot free-runs, so allow plenty of iterations per second of
+    # simulated time or the engine stops before the report is printed.
+    ticks = int(args.seconds * 400)
     return run(["docker", "compose", "run", "--rm", "godot",
                 "--headless", "--quit-after", str(ticks), "--", "--smoke"],
                cwd=GODOT)

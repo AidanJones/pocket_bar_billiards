@@ -186,6 +186,31 @@ def run(design: T.Design, rows, chk: Checker):
         for nm in ("score_back", "score_track", "score_face", "score_marker"):
             chk.rule(any(r_["file"] == nm + ".stl" for r_ in rows), f"{nm} is emitted")
 
+    # --- 9b. the assembled table is symmetric ---------------------------
+    # Left-hand parts are built by mirroring right-hand ones, which is easy
+    # to get subtly wrong: a mirrored profile placed at an unmirrored origin
+    # is the right shape in the wrong place, so it still prints, still fits
+    # the bed and still passes every other rule here.
+    by_name = {p.name: p for p in design.parts}
+    for part in design.parts:
+        if "_left" not in part.name:
+            continue
+        twin = by_name.get(part.name.replace("_left", "_right"))
+        chk.rule(twin is not None, f"{part.name} has a right-hand twin")
+        if twin is None:
+            continue
+        lo, hi = part.mesh.v.min(0), part.mesh.v.max(0)
+        tlo, thi = twin.mesh.v.min(0), twin.mesh.v.max(0)
+        mirrored = (abs(lo[0] + thi[0]) < 1e-6 and abs(hi[0] + tlo[0]) < 1e-6
+                    and abs(lo[1] - tlo[1]) < 1e-6 and abs(hi[2] - thi[2]) < 1e-6)
+        chk.rule(mirrored, f"{part.name} sits opposite {twin.name} "
+                           f"(x {lo[0]:.1f}..{hi[0]:.1f} vs {tlo[0]:.1f}..{thi[0]:.1f})")
+    span = [(p_.mesh.v.min(0)[0], p_.mesh.v.max(0)[0]) for p_ in design.parts
+            if p_.role in ("frame", "rail", "playfield", "ramp")]
+    if span:
+        chk.rule(abs(min(s_[0] for s_ in span) + max(s_[1] for s_ in span)) < 1e-6,
+                 "the assembled table is centred on x = 0")
+
     # --- 10. printability ----------------------------------------------
     chk.rule(not any(r_["supports"] == "yes" for r_ in rows), "no part needs supports")
     if not coupon:

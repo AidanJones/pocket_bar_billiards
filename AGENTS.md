@@ -215,6 +215,11 @@ to make a change pass** — fix the geometry, or ask the owner.
     fins wide, no lane wall passes under a hole, every chute leaves a ball's
     headroom, and a chute only ever crosses a lane whose own hole is nearer
     the player — so nothing is rolling down it at the time.
+14. Every `_left` part is the mirror image, **in place**, of its `_right`
+    twin, and the assembled table is centred on x = 0. `place()` mirrors a
+    profile about its origin, so a left-hand part needs the origin mirrored
+    too; getting that wrong gives the right shape in the wrong place, which
+    prints perfectly well and passes everything else.
 
 Also keep: all sizes driven by `Spec`/`Dims`, splitting automatic, and
 `check.py --all` green across every printer in `profiles.py`.
@@ -279,10 +284,16 @@ Also keep: all sizes driven by `Spec`/`Dims`, splitting automatic, and
 - The scoreboard markers are a friction fit, not a detent: nothing printed
   flat like that would spring. A sprung pawl would need a part with a thin
   cantilever, which `prism` can draw but which wants testing.
-- `--return sorted` is built but has never been printed. Its geometry is
-  checked and `godot/tools/physics_test.py` simulates it, but a simulation
-  is not a plate. Real tables do not do this: they return every ball to one
-  trough and the players keep score.
+- **`--return sorted` does not work yet.** The simulation returns 9 of 9
+  balls with the shared return but only 5 of 9 with the sorted one: the five
+  holes that drop straight into their lane are fine, and all four that need
+  a chute fail — the ball stops on the chute, or is not pushed far enough
+  and lands one lane over. The chute is a ~7° cross-slope and a ball
+  dropping onto it has no reason to roll off. Rethink that mechanism (a
+  steeper chute, a curved one, or a funnel the ball cannot rest on) before
+  anyone prints it. The lanes themselves are sound. Real tables do not do
+  this at all: they return every ball to one trough and the players keep
+  score.
 - The game has no rules engine yet — it scores pots and that is all. No
   break tracking, no skittle penalties, no timer, no second player.
 - The sorted return costs 20 extra pieces and a plate, which is why it is

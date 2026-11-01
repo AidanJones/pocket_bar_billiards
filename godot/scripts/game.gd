@@ -23,6 +23,8 @@ var balls: Array[RigidBody3D] = []
 var cue_ball: RigidBody3D
 var score := 0
 var potted: Array = []
+var gate_down := false
+var _gate_parts: Array = []
 
 @onready var _hud := Label.new()
 
@@ -86,9 +88,46 @@ func _build_table() -> void:
 	# The model's origin is the desk top it clamps to; lift it to bed height.
 	table.position.y = bed_height - float(layout["surface_y"])
 	add_child(table)
-	var colliders: int = TableLoaderScript.add_collision(table)
-	print("[table] %d trimesh colliders" % colliders)
+	# The gate is modelled dropped into its slot, which is where it sits when
+	# the game is over. Start with it lifted out, so balls can come home.
+	_gate_parts = TableLoaderScript.gate_parts(table)
+	var colliders: int = TableLoaderScript.add_collision(table, ["time_bar_gate"])
+	print("[table] %d trimesh colliders, %d gate part(s) lifted out" % [
+		colliders, _gate_parts.size()])
+	set_gate(false)
+	_build_desk()
 	_build_pockets()
+
+
+## The table clamps to the front edge of a desk, and the desk top is what
+## the return ramp actually rests on — the ramp's front edge is only a few
+## millimetres thick, so without it a ball arriving at speed sinks through
+## the tray and drops out of the world.
+func _build_desk() -> void:
+	var box: AABB = TableLoaderScript.bounds(table)
+	if box.size == Vector3.ZERO:
+		return
+	var top: float = table.position.y          # the model's own z = 0
+	var thickness := 0.04
+	var body := StaticBody3D.new()
+	body.name = "Desk"
+	var shape := CollisionShape3D.new()
+	var slab := BoxShape3D.new()
+	slab.size = Vector3(box.size.x + 0.30, thickness, box.size.z + 0.30)
+	shape.shape = slab
+	body.add_child(shape)
+	var view := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = slab.size
+	view.mesh = mesh
+	var surface := StandardMaterial3D.new()
+	surface.albedo_color = Color(0.72, 0.62, 0.48)
+	surface.roughness = 0.8
+	view.material_override = surface
+	body.add_child(view)
+	body.position = Vector3(box.get_center().x, top - thickness * 0.5,
+		box.get_center().z)
+	add_child(body)
 
 
 func _build_pockets() -> void:
@@ -116,8 +155,10 @@ func _ball(colour: Color, at: Vector3) -> RigidBody3D:
 	body.contact_monitor = true
 	body.max_contacts_reported = 4
 	var mat := PhysicsMaterial.new()
-	mat.bounce = 0.55
-	mat.friction = 0.25
+	# An acetal ball on a PLA ramp is fairly dead; 0.55 was lively enough to
+	# ricochet a ball into the corner of the tray and squeeze it out.
+	mat.bounce = 0.25
+	mat.friction = 0.3
 	body.physics_material_override = mat
 
 	var shape := CollisionShape3D.new()
@@ -194,6 +235,19 @@ func _process(_delta: float) -> void:
 		return
 	_hud.text = "score %d    potted %d/%d\ndrag to aim, release to play" % [
 		score, potted.size(), balls.size()]
+
+
+## Drop the time bar in (or lift it out). With it down, potted balls stay
+## under the table and the game winds down — the pub table's end of play.
+func set_gate(down: bool) -> void:
+	gate_down = down
+	for part in _gate_parts:
+		part.visible = down
+		for child in part.get_children():
+			if child is StaticBody3D:
+				child.queue_free()
+		if down:
+			part.create_trimesh_collision()
 
 
 ## Used by the smoke test and by "reset".

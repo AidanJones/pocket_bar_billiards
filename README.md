@@ -220,9 +220,12 @@ The layout is solved from the hole positions, so it still works if you edit
 them — and `layout.json` lists each lane's score and X range. Mark the tray
 lip with a pen so you can read it at a glance.
 
-**It costs about 20 extra pieces and one more plate, and it has never been
-printed.** The geometry is checked; whether a dropped ball reliably ends up
-in the right lane is a physics question. Print the shared return first.
+**It costs about 20 extra pieces and one more plate, and it does not work
+yet.** The geometry is checked, but the physics simulation (section 9)
+returns only 5 of 9 balls to the right lane: the five holes that drop
+straight into their own lane are fine, and all four that need a chute fail —
+the ball stops on the chute instead of rolling off it. Print the shared
+return, which simulates 9 out of 9.
 
 ## 7. Rules in brief
 

@@ -12,10 +12,14 @@ is modelled twice, so a change to the table shows up in both.
 
 Two things change on the way out:
 
-* **Life size.** The game defaults to a real league table (47.6 mm ball,
-  800 x 1420 mm bed) rather than a desk-sized one. Godot's physics is
+* **Life size.** The game shows a real league table (47.6 mm ball,
+  800 x 1420 mm bed) rather than a desk-sized one: Godot's solver is
   happiest around human scale, and in VR you want to stand at a real table.
-  It is the same generator either way — only `--ball` differs.
+  It is the *printed* table blown up uniformly, not the generator re-run
+  with a bigger ball — rerunning it would keep the wall thickness, which is
+  set by the nozzle and does not scale, and a 48 mm ball meets 4 mm walls
+  and tunnels straight through them. `--as-printed` leaves it at 1:1 with
+  the STLs.
 * **Metres, Y up.** Millimetres and Z-up become metres and Y-up, which is
   what glTF and Godot expect.
 
@@ -52,7 +56,7 @@ def hex_linear(h: str):
     return [srgb_to_linear(int(h[i:i + 2], 16) / 255.0) for i in (0, 2, 4)] + [1.0]
 
 
-def to_gltf_space(v: np.ndarray, scale=MM) -> np.ndarray:
+def to_gltf_space(v: np.ndarray, scale: float) -> np.ndarray:
     """Z-up millimetres -> Y-up metres. A rotation, so winding is unchanged."""
     out = np.empty_like(v)
     out[:, 0] = v[:, 0] * scale
@@ -61,9 +65,9 @@ def to_gltf_space(v: np.ndarray, scale=MM) -> np.ndarray:
     return out
 
 
-def flat_triangles(mesh):
+def flat_triangles(mesh, scale: float):
     """(positions, normals) with one vertex per corner and a per-face normal."""
-    v = to_gltf_space(mesh.v)
+    v = to_gltf_space(mesh.v, scale)
     tri = v[mesh.f]                                   # (n, 3, 3)
     n = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
     length = np.linalg.norm(n, axis=1, keepdims=True)
@@ -76,7 +80,8 @@ def flat_triangles(mesh):
 class GLB:
     """A minimal glTF 2.0 binary writer: meshes, flat normals, flat colours."""
 
-    def __init__(self):
+    def __init__(self, scale: float = MM):
+        self.scale = scale
         self.bin = bytearray()
         self.views, self.accessors = [], []
         self.meshes, self.nodes, self.materials = [], [], []
@@ -107,7 +112,7 @@ class GLB:
         return self._material_of[colour]
 
     def add(self, name: str, mesh, colour: str, extras=None):
-        pos, nrm = flat_triangles(mesh)
+        pos, nrm = flat_triangles(mesh, self.scale)
         self.meshes.append(dict(name=name, primitives=[dict(
             attributes=dict(POSITION=self._accessor(pos), NORMAL=self._accessor(nrm)),
             material=self.material(colour), mode=4)]))
@@ -118,7 +123,7 @@ class GLB:
 
     def add_point(self, name: str, xyz, extras=None):
         """An empty node — a spot the game needs to know about."""
-        p = to_gltf_space(np.asarray([xyz], float))[0]
+        p = to_gltf_space(np.asarray([xyz], float), self.scale)[0]
         node = dict(name=name, translation=[float(x) for x in p])
         if extras:
             node["extras"] = extras
@@ -147,9 +152,9 @@ class GLB:
         return total
 
 
-def build(design: T.Design) -> GLB:
+def build(design: T.Design, scale: float = MM) -> GLB:
     """The assembled table, plus an empty node at every hole and spot."""
-    glb = GLB()
+    glb = GLB(scale)
     lay, d = design.layout, design.dims
     for part in design.parts:
         if part.role not in SCENE_ROLES or part.name.startswith(SKIP):
@@ -167,15 +172,17 @@ def build(design: T.Design) -> GLB:
 
     for score, x, y in design.holes:
         glb.add_point(f"hole_{score}_{x:.0f}", (x, y, d.zt),
-                      extras=dict(role="hole", score=score, radius=d.hole_open / 2 * MM))
+                      extras=dict(role="hole", score=score,
+                                  radius=d.hole_open / 2 * scale))
     glb.add_point("spot_d", (*lay["d_spot"], d.zt + d.felt), extras=dict(role="spot"))
     glb.add_point("spot_red", (*lay["red_spot"], d.zt + d.felt), extras=dict(role="spot"))
     return glb
 
 
-def game_layout(design: T.Design) -> dict:
+def game_layout(design: T.Design, scale: float = MM) -> dict:
     """What the game needs that the mesh does not say: sizes, spots, rules."""
     d, lay = design.dims, design.layout
+    MM = scale                      # everything below is in export units
     return dict(
         units="metres", up="+Y", player_at="+Z",
         ball_diameter=d.ball * MM, ball_radius=d.ball / 2 * MM,
@@ -187,6 +194,11 @@ def game_layout(design: T.Design) -> dict:
         d_spot=dict(x=lay["d_spot"][0] * MM, z=-lay["d_spot"][1] * MM),
         red_spot=dict(x=lay["red_spot"][0] * MM, z=-lay["red_spot"][1] * MM),
         d_radius=lay["d_radius"] * MM,
+        # Where a returned ball is supposed to end up: the open tray at the
+        # player's end, between the apron beam and the front lip.
+        tray=dict(z0=-d.y_ap0 * MM, z1=-d.y_lip0 * MM,
+                  x0=-d.xi * MM, x1=d.xi * MM),
+        bed_underside_y=d.zp * MM,
         baulk_z=-lay["baulk_y"] * MM,
         skittles=[dict(colour="black", x=lay["peg_black"][0] * MM,
                        z=-lay["peg_black"][1] * MM)]
@@ -202,20 +214,25 @@ def main(argv=None) -> int:
     ap = bb.parser()
     ap.set_defaults(out="godot/assets", bed=4000, size="standard")
     ap.add_argument("--game-ball", type=float, default=REAL_BALL,
-                    help="ball diameter for the exported scene, mm "
-                         f"(default {REAL_BALL} = a real league table)")
+                    help="ball diameter in the exported scene, mm "
+                         f"(default {REAL_BALL} = a real league table). The "
+                         "printed table is scaled up to meet it.")
     ap.add_argument("--as-printed", action="store_true",
                     help="export at the printed size instead of life size")
     args = ap.parse_args(argv)
-    if not args.as_printed and args.ball is None:
-        args.ball = args.game_ball
     design = bb.build(args)
 
+    # Blow the printed table up as one object rather than regenerating it
+    # bigger: wall thicknesses are set by the nozzle, not the ball, so a
+    # re-run at 47.6 mm would leave 4 mm walls for a 48 mm ball.
+    scale = MM if args.as_printed else MM * (args.game_ball / design.dims.ball)
+
     os.makedirs(args.out, exist_ok=True)
-    glb = build(design)
+    glb = build(design, scale)
     size = glb.write(os.path.join(args.out, "table.glb"),
-                     extras=dict(generator="pocket_bar_billiards"))
-    layout = game_layout(design)
+                     extras=dict(generator="pocket_bar_billiards",
+                                 scale_mm_to_scene=scale))
+    layout = game_layout(design, scale)
     with open(os.path.join(args.out, "table_layout.json"), "w", encoding="utf-8") as fh:
         json.dump(layout, fh, indent=1)
 
@@ -223,9 +240,10 @@ def main(argv=None) -> int:
                for m in glb.meshes for prim in m["primitives"])
     print(f"{args.out}/table.glb  {size / 1024:.0f} kB  "
           f"{len(glb.meshes)} meshes, ~{tris} triangles")
-    print(f"ball {design.dims.ball:.1f} mm, playing area "
-          f"{design.dims.width / 1000:.2f} x {design.dims.length / 1000:.2f} m "
-          f"(1:{1 / design.dims.scale:.2f})")
+    print(f"printed ball {design.dims.ball:.2f} mm -> scene ball "
+          f"{layout['ball_diameter'] * 1000:.1f} mm, playing area "
+          f"{layout['playing_width']:.2f} x {layout['playing_length']:.2f} m "
+          f"(x{scale / MM:.2f})")
     return 0
 
 

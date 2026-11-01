@@ -40,13 +40,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			aiming = false
 			_strike()
 	elif event is InputEventMouseMotion and aiming:
-		var hit := _bed_point(event.position)
+		var hit: Variant = _bed_point(event.position)
 		if hit != null:
 			aim_to = hit
 
 
 ## Where the pointer is on the plane of the bed, or null if it misses.
-func _bed_point(screen: Vector2):
+func _bed_point(screen: Vector2) -> Variant:
 	var cam := get_viewport().get_camera_3d()
 	if cam == null:
 		return null
@@ -73,7 +73,8 @@ func play(direction: Vector3, power: float) -> void:
 	direction.y = 0.0
 	if direction.length_squared() < 1e-8:
 		return
-	var impulse := direction.normalized() * MAX_SPEED * clampf(power, 0.0, 1.0) * game.ball_mass
+	var mass: float = game.ball_mass
+	var impulse := direction.normalized() * MAX_SPEED * clampf(power, 0.0, 1.0) * mass
 	game.cue_ball.apply_central_impulse(impulse)
 
 

@@ -65,14 +65,28 @@ Measure your desk top before printing: `--desk 25` (mm) sizes the clamps.
 
 ---
 
-## 3. Print it
+## 3. Set up and print
 
-Python 3.10+ with numpy; matplotlib as well if you want the previews:
+Python 3.10 or newer, and Docker if you want the game. Nothing else gets
+installed on the machine: Godot runs in a container, and there is no CAD
+package and no Blender step.
 
 ```bash
+git clone git@github.com:AidanJones/pocket_bar_billiards.git
+cd pocket_bar_billiards
 python -m venv .venv
-.venv/Scripts/python -m pip install -r requirements.txt
 ```
+
+Then activate it — on Windows `.venv/Scripts/activate`, on macOS and
+Linux `source .venv/bin/activate` — and:
+
+```bash
+pip install -r requirements.txt
+python check.py          # should end "0 failure(s)"
+```
+
+Every command below assumes that venv is active. `numpy` is all the
+generator and the checks need; `matplotlib` is only for `render.py`.
 
 Run the generator, then read `stl/print_plan.md` — it lists walls, infill,
 plate and filament for every file, for the printer and filament you chose.
@@ -302,4 +316,6 @@ up in. Needs Docker; `godot/README.md` has the detail.
 
 ---
 
-Working on the code? `AGENTS.md` has the design rules and the house style.
+Working on the code? `AGENTS.md` has the design rules and the house
+style, and `TODO.md` has what is and is not finished — including the fact
+that **none of this has been printed yet**.

@@ -44,7 +44,8 @@ faithful *approximation* of a standard English table, not a copy of one.
 | `gltf.py` | The same model as a `.glb` for the game, plus the JSON it needs. Life size by default. |
 | `godot/` | Godot 4.3 project: the browser/VR game and the ball-return physics test. See `godot/README.md`. |
 | `README.md` | Build guide for humans (BOM, print settings, assembly, rules). |
-| `stl/`, `stl_coupon/`, `previews/` | Generated. Never hand-edit. |
+| `TODO.md` | What is done, what is unverified, what to do next. Read it before planning work. |
+| `stl/`, `stl_coupon/`, `previews/`, `godot/assets/` | Generated, and committed so a clone is runnable. Never hand-edit; regenerate. |
 
 Dependencies: Python 3.10+, `numpy`, `matplotlib` (render only). The game
 needs Docker (Godot runs in a container; there is no native install and no
@@ -61,15 +62,19 @@ unless the owner asks. The environment may be offline.
 
 ## 3. Commands (the dev loop)
 
-One-off setup (the repo ships a `.venv`-shaped `requirements.txt`; the
-system Python here has no numpy):
+One-off setup. Python 3.10+, plus Docker if you are touching the game —
+Godot runs in a container and there is no native install to manage.
 
 ```bash
 python -m venv .venv
-.venv/Scripts/python -m pip install -r requirements.txt   # Scripts on Windows, bin elsewhere
+# Windows:        .venv/Scripts/activate
+# macOS / Linux:  source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Then, with that interpreter:
+The system Python on a fresh box will not have numpy, so activate the venv
+(or call `.venv/Scripts/python` / `.venv/bin/python` explicitly) before any
+of this. Then:
 
 ```bash
 python barbilliards.py              # build the default table -> stl/
@@ -96,6 +101,11 @@ owner prints first.
 
 **After every change: run all three, then *look at* `previews/*.png`.** A
 passing check does not prove the geometry looks right.
+
+Roughly how long they take, on an 8-core box: `barbilliards.py` 4 s,
+`check.py` 2 s, `render.py` 21 s, `check.py --all` 96 s,
+`physics_test.py` 42 s. The last three are the ones worth speeding up —
+see `TODO.md` §4.
 
 If you touched anything under the bed — the ramp, the beams, the gate, the
 return lanes — also run the simulation, which is the only thing that tests
@@ -255,8 +265,12 @@ Also keep: all sizes driven by `Spec`/`Dims`, splitting automatic, and
 - Scale things by what actually drives them: ball size for play geometry,
   nozzle and layer height for printed-wall minimums, the desk for the
   mounting hardware. Say which in a comment when it isn't obvious.
-- Don't hand-edit anything in `stl/`, `stl_coupon/` or `previews/`;
-  regenerate.
+- Don't hand-edit anything in `stl/`, `stl_coupon/`, `previews/` or
+  `godot/assets/`; regenerate. They are committed so a fresh clone runs
+  without a toolchain, which means they have to be regenerated and
+  committed with any change that moves the geometry.
+- Keep `TODO.md` honest. If you finish something on it, tick it off in the
+  same commit; if you learn the project cannot do something, record it.
 - When you add, remove or rename a part, update the README's print table and
   assembly steps.
 - Don't give `table.py` file I/O or import side effects: `check.py`,

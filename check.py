@@ -12,6 +12,7 @@ Nothing is written to disk.
 """
 from __future__ import annotations
 
+import math
 import sys
 
 import barbilliards as bb
@@ -158,8 +159,40 @@ def run(design: T.Design, rows, chk: Checker):
                      "finished with by then")
         for part in design.parts:
             if part.name.startswith("return_chute"):
-                head = d.zp - part.mesh.v[:, 2].max()
+                v = part.mesh.v
+                head = d.zp - v[:, 2].max()
                 chk.rule(head >= B, f"{part.name}: {head:.1f} mm of headroom >= a ball")
+                rise = v[:, 2].max() - v[:, 2].min()
+                span = v[:, 0].max() - v[:, 0].min()
+                angle = math.degrees(math.atan2(rise, span))
+                chk.rule(angle >= 10.0,
+                         f"{part.name}: {angle:.1f} deg of cross-slope >= 10 "
+                         "(a ball will not roll off less)")
+                # Its underside is flat while the ramp climbs under it.
+                gap = (v[:, 1].max() - v[:, 1].min()) * math.tan(math.radians(d.slope))
+                chk.rule(gap < B / 2,
+                         f"{part.name}: {gap:.1f} mm gap beneath it < half a ball")
+                # A chute eats into the lane it delivers to, and a lane
+                # is only about a ball and a half wide. What is left
+                # between its low edge and the lane's far wall has to be
+                # wider than a ball, or the ball jams on the chute's edge
+                # instead of rolling off it.
+                xs, zs = v[:, 0], v[:, 2]
+                left, right = xs.min(), xs.max()
+                low_x, far = left, None
+                if zs[xs <= left + 1e-6].max() > zs[xs >= right - 1e-6].max():
+                    low_x = right
+                for b0, b1 in zip(bounds, bounds[1:]):
+                    if b0 <= low_x <= b1:
+                        # The ball carries on the way the chute was falling,
+                        # so the wall that stops it is the one beyond.
+                        far = b0 if low_x == left else b1
+                if far is None:
+                    far = min(bounds, key=lambda b: abs(b - low_x))
+                channel = abs(far - low_x) - fin_t / 2
+                chk.rule(channel >= B + 0.5,
+                         f"{part.name}: {channel:.1f} mm of lane left beyond "
+                         f"its low edge, room for a {B:.1f} mm ball")
             if part.name.startswith("lane_fin"):
                 top = part.mesh.v[:, 2].max()
                 chk.rule(abs(top - d.zp) < 1e-6, f"{part.name} reaches the slab above")

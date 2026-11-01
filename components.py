@@ -354,12 +354,19 @@ def lane_fin(w0, w1, u0, u1, floor, ceiling, clearance=0.3):
     return strip(profile, w0, w1, "yz")
 
 
-def cross_chute(w0, w1, u_high, u_low, z_floor, rise, lip=0.8):
-    """A little trough that tips a ball sideways as it lands in it.
+def landing_chute(w0, w1, u_high, u_low, z_floor, rise, lip=0.8):
+    """A short cross-slope under a hole that rolls a ball sideways as it lands.
 
-    Extruded along the direction the ball was travelling, so its floor can
-    fall across that direction. Used where two holes share a centreline and
-    their balls have to end up in different lanes.
+    Extruded along the direction the ball would otherwise travel, so its
+    floor can fall across that direction — the one way the prism engine can
+    make a slope that is not the ramp's own.
+
+    Two things decide whether it works, and the first version got both
+    wrong. It has to be **steep**, which means taking all the rise the
+    headroom under the bed allows and spanning no further than the ball
+    actually has to move; and it has to **end where the ball can leave it**,
+    well clear of the lane wall, or the ball rolls to the bottom and wedges
+    between the two.
     """
     return strip([(u_low, z_floor), (u_high, z_floor),
                   (u_high, z_floor + rise), (u_low, z_floor + lip)],

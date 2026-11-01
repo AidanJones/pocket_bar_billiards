@@ -209,10 +209,10 @@ that tells you what it scored.
 
 ![sorted ball return](previews/preview_sorted_return.png)
 
-Six of the holes drop straight into their own lane. Four need help: the 10,
-the 100 and both 30s land on a small **chute** glued to the ramp under the
-hole, which tips the ball sideways into its lane. The 10 and 100 need it
-because they share the centreline with the 200; the 30s because they sit
+Five of the holes drop straight into their own lane. Four need help: the
+10, the 100 and both 30s land on a small **chute** glued to the ramp under
+the hole, which rolls the ball sideways into its lane. The 10 and 100 need
+it because they share the centreline with the 200; the 30s because they sit
 only 10 mm from the 50s, which is closer than a hole is wide, so there is
 nowhere to put a wall between them.
 
@@ -220,12 +220,11 @@ The layout is solved from the hole positions, so it still works if you edit
 them — and `layout.json` lists each lane's score and X range. Mark the tray
 lip with a pen so you can read it at a glance.
 
-**It costs about 20 extra pieces and one more plate, and it does not work
-yet.** The geometry is checked, but the physics simulation (section 9)
-returns only 5 of 9 balls to the right lane: the five holes that drop
-straight into their own lane are fine, and all four that need a chute fail —
-the ball stops on the chute instead of rolling off it. Print the shared
-return, which simulates 9 out of 9.
+It costs about 20 extra pieces and one more plate. In the physics
+simulation (section 9) **all nine balls reach the right lane**, as do all
+nine with the shared return — but neither has been printed yet, and a
+simulation is not a plate. If you are printing your first table, print the
+shared return: it is 20 pieces simpler and it is what a real table does.
 
 ## 7. Rules in brief
 

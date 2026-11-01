@@ -40,8 +40,16 @@ func run(owner_game: Node3D) -> void:
 	layout = game.layout
 	holes = layout.get("holes", [])
 	lanes = layout.get("return_lanes", [])
-	print("[smoke] %d holes, %s return" % [
-		holes.size(), "sorted" if lanes.size() > 0 else "shared"])
+	print("[smoke] %d holes, %s return, %.1f mm ball" % [
+		holes.size(), "sorted" if lanes.size() > 0 else "shared",
+		float(layout["ball_diameter"]) * 1000.0])
+	# Godot's solver is tuned for roughly human-scale objects. Below about
+	# 20 mm the contact tolerances are a sizeable fraction of the ball and
+	# results stop meaning much either way, which is why the exporter runs
+	# the game life size.
+	if float(layout["ball_diameter"]) < 0.02:
+		print("[smoke] NOTE: that is small for the physics engine — treat "
+			+ "anything below ~20 mm as inconclusive, not as a design fault")
 	for ball in game.balls:
 		ball.queue_free()
 	game.balls.clear()

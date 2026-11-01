@@ -284,16 +284,12 @@ Also keep: all sizes driven by `Spec`/`Dims`, splitting automatic, and
 - The scoreboard markers are a friction fit, not a detent: nothing printed
   flat like that would spring. A sprung pawl would need a part with a thin
   cantilever, which `prism` can draw but which wants testing.
-- **`--return sorted` does not work yet.** The simulation returns 9 of 9
-  balls with the shared return but only 5 of 9 with the sorted one: the five
-  holes that drop straight into their lane are fine, and all four that need
-  a chute fail — the ball stops on the chute, or is not pushed far enough
-  and lands one lane over. The chute is a ~7° cross-slope and a ball
-  dropping onto it has no reason to roll off. Rethink that mechanism (a
-  steeper chute, a curved one, or a funnel the ball cannot rest on) before
-  anyone prints it. The lanes themselves are sound. Real tables do not do
-  this at all: they return every ball to one trough and the players keep
-  score.
+- Neither ball return has been printed. Both simulate 9 of 9 at life size,
+  but a simulation is not a plate — and the simulation is only meaningful
+  around human scale. `--as-printed` at `--size mini` puts a 9.5 mm ball in
+  front of Godot's solver, which is below what it handles reliably; the
+  smoke test says so when it sees one. Real tables do not sort at all: they
+  return every ball to one trough and the players keep score.
 - The game has no rules engine yet — it scores pots and that is all. No
   break tracking, no skittle penalties, no timer, no second player.
 - The sorted return costs 20 extra pieces and a plate, which is why it is

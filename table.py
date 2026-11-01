@@ -212,6 +212,12 @@ class Dims:
         self.sb_h = ((self.sb_rows - 1) * self.sb_row_pitch
                      + 2 * self.sb_track_r + 2 * sb_margin)
 
+        # -- sorted-return chutes ----------------------------------------
+        # How far along the ball's travel the chute reaches. Long enough to
+        # catch a ball that is already rolling, short enough not to foul the
+        # next hole along.
+        self.chute_run = 2.2 * ball
+
         # -- how far a tile seam must stay from a hole -------------------
         self.seam_margin = max(6.0, 0.5 * ball)
 
@@ -375,35 +381,49 @@ def _spans(lo, hi, gaps, min_len=1.0):
 
 
 def _sorted_return(d: "Dims", spec: Spec, parts: C.PartList, holes, lay):
-    """Lane walls and landing chutes for the score-sorted ball return."""
+    """Lane walls and landing deflectors for the score-sorted ball return."""
     pr = spec.printer
     fin_t = max(2.0, 5 * pr.nozzle)
     bounds, lanes = return_lanes(d, holes, fin_t)
     y_lo, y_hi = d.y_lip1 + 0.3, d.y_bw0 - 0.3
-    run = 2.2 * d.ball
-    rise = max(2.0, 0.35 * d.ball)
 
-    # The chutes go in first: where one crosses a lane boundary, that fin has
-    # to stand aside and let the ball through.
+    # The deflectors go in first: where one crosses a lane boundary, that fin
+    # has to stand aside and let the ball through.
     gaps = {}
     for i, (score, x_lane, y_hole, offset) in enumerate(lanes):
         if offset == 0.0:
             continue
-        side = 1.0 if offset > 0 else -1.0
         hx = x_lane - offset
-        j = max(k for k in range(len(bounds) - 1) if bounds[k] < hx)
-        # start just inside the fin on the far side of the hole it lands in,
-        # and finish well inside the lane it is aiming for
-        u_high = (bounds[j] + fin_t / 2 + 0.5 if side > 0
-                  else bounds[j + 1] - fin_t / 2 - 0.5)
-        u_low = x_lane + side * ((bounds[i + 1] - bounds[i]) / 2 - 1.5)
-        y0, y1 = y_hole - run / 2, y_hole + run / 2
+        side = 1.0 if offset > 0 else -1.0
+        y0, y1 = y_hole - d.chute_run / 2, y_hole + d.chute_run / 2
+        # The chute's back face is a step the height of the rise, so a ball
+        # that bounces over it on landing is stuck behind it. Where there is
+        # not room for one to get back there, close the gap to the wall.
+        if d.y_bw0 - y1 < 2.5 * d.ball:
+            y1 = d.y_bw0 - 0.3
+        z_floor = d.ramp_z(y1) + 0.2
+
+        # Take every millimetre of rise the headroom allows: the ball has to
+        # roll off this, and a few degrees will not do it.
+        rise = max(2.0, min(0.6 * d.ball, d.zp - z_floor - d.ball - 1.0))
+
+        # Start just past the far edge of the hole, so the chute catches the
+        # ball and its high edge stops it going back, but keep clear of any
+        # lane wall on that side.
+        u_high = hx - side * (d.hole_r + 2.0)
+        for b in bounds:
+            if abs(u_high - b) < fin_t / 2 + 0.5:
+                u_high = b + side * (fin_t / 2 + 0.5)
+        # Finish just inside the target lane, not out in the middle of it:
+        # whatever the chute covers is taken away from the width the ball
+        # has to sit in, and a lane is only about a ball and a half wide.
+        # Stopping at the near wall leaves the whole lane to land in.
+        u_low = bounds[i if side > 0 else i + 1] + side * (fin_t / 2 + 0.5)
         parts.add(f"return_chute_{i + 1}_{score}",
-                  C.cross_chute(y0, y1, u_high, u_low, d.ramp_z(y1) + 0.2, rise),
-                  role="ramp", colour=spec.hue("ramp"), walls=3, infill=20,
-                  note=f"glue to the ramp under the {score} hole at "
-                       f"x={hx:.0f}; it tips the ball sideways into lane "
-                       f"{i + 1}, the {score}")
+                  C.landing_chute(y0, y1, u_high, u_low, z_floor, rise),
+                  role="ramp", colour=spec.hue("ramp"), walls=3, infill=25,
+                  note=f"glue to the ramp under the {score} hole at x={hx:.0f}; "
+                       f"it rolls the ball into lane {i + 1}, the {score}")
         for k, b in enumerate(bounds):
             if min(u_high, u_low) < b < max(u_high, u_low):
                 gaps.setdefault(k, []).append((y0 - fin_t, y1 + fin_t))
@@ -424,7 +444,7 @@ def _sorted_return(d: "Dims", spec: Spec, parts: C.PartList, holes, lay):
 
     lay["return_lanes"] = [
         dict(score=score, x0=round(bounds[i], 2), x1=round(bounds[i + 1], 2),
-             centre=round(x, 2), chute=offset != 0.0)
+             centre=round(x, 2), deflector=offset != 0.0)
         for i, (score, x, _y, offset) in enumerate(lanes)]
     return bounds, lanes
 

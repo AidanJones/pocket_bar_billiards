@@ -81,13 +81,34 @@ fakes it.
 
 **Shared return: 9 of 9.** Every hole returns its ball to the tray.
 
-**Sorted return: 5 of 9.** The five holes that drop straight into their own
-lane all work. **All four holes that need a chute fail**: the ball lands on
-the chute and stops on it (the left 30, the 10, the 100), or is deflected
-but not far enough and ends up one lane over (the right 30). The chute is a
-shallow cross-slope — about 7° — and a ball dropping onto it from above has
-no reason to roll off it. That mechanism needs rethinking before the sorted
-return is worth printing; the lanes themselves are fine.
+**Sorted return: 9 of 9**, each into the lane that matches its score — but
+only after the test failed it at 5 of 9 and the chutes were redesigned
+around what it said. Three things were wrong, and none of them was visible
+in the geometry:
+
+* The cross-slope was **too shallow** — a fixed 4.4 mm of rise spread over
+  up to 59 mm, so 4–8°. A ball dropped onto that simply sits on it. It now
+  takes all the rise the headroom under the bed allows and spans no further
+  than the ball has to move: 12–18°.
+* It **finished against the lane wall**, 0.5 mm clear of it, so a ball that
+  did roll down wedged between the two. It now stops at the near wall of
+  the lane it is delivering to, leaving the whole lane to land in. A lane
+  is only about a ball and a half wide, so whatever the chute covers is
+  taken away from the ball.
+* The back-row chutes **left a gap behind them**, and a ball bouncing on
+  landing could end up behind a 7 mm step it could not climb. Those now
+  reach the back wall.
+
+`check.py` gained a rule for each: at least 10° of cross-slope, a
+ball-and-a-half of lane left beyond the low edge, and less than half a ball
+of gap underneath.
+
+**A caveat on scale.** Those numbers are at life size. `--as-printed` at
+`--size mini` hands Godot a 9.5 mm ball, which is below what its solver
+handles reliably — balls stick on slopes they should roll down, including
+at holes with no chute at all. The test prints a warning when it sees a
+ball under 20 mm; treat the result as inconclusive rather than as a fault
+in the table.
 
 It also caught a real bug in the generator. `place()` mirrors a profile
 about its origin, and the left-hand walls and rails were being mirrored but

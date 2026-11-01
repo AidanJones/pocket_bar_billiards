@@ -4,9 +4,10 @@
     python godot/tools/screenshots.py          # -> godot/screenshots/*.png
 
 The game renders under Xvfb with Mesa's software OpenGL, so this needs no
-GPU and no display. Each picture is a real run of the game: the mid-game
-ones play a few random shots first (the autoplay test's), so they differ a
-little from run to run.
+GPU and no display. Each picture is a real run of the game: the overhead
+one plays a few random shots first (the autoplay test's), so it differs a
+little from run to run. The folder has a .gdignore so Godot neither imports
+the pictures nor packs them into the web build.
 """
 from __future__ import annotations
 
@@ -23,7 +24,6 @@ OUT = GODOT / "screenshots"
 SHOTS = {
     "menu": [],
     "aim": ["--start", "--aim"],
-    "midgame": ["--autoplay", "--shots", "6", "--aim"],
     "overhead": ["--autoplay", "--shots", "8", "--aim", "--camera", "1"],
 }
 

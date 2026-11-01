@@ -12,8 +12,8 @@ teach us the most, not by what is easiest.
 | Shared ball return | 9 of 9 balls reach the tray | Godot physics, life size |
 | Sorted ball return | 9 of 9 balls reach the right lane | Godot physics, life size |
 | Scoreboard | Geometry and fit checked | `check.py` rules 12 |
-| Game | Loads, racks, aims, pots, scores | Runs headless; never seen on screen |
-| Web build | **Never run** | — |
+| Game | Plays to the rules: breaks, skittles, timer, 1–2 players | `--autoplay` soak (40 shots, no ball lost); screenshots under Xvfb |
+| Web build | Loads and plays a shot in Chromium | `godot/e2e/web_smoke.py` (headless, SwiftShader) — no human has played it yet |
 | VR | **Never run** | — |
 | **Anything printed** | **No** | — |
 
@@ -69,32 +69,38 @@ Everything below this line is speculation until a plate comes off.
 
 ## 2. The game
 
-- [ ] **Run the web export.** `python godot/tools/web_export.py --serve` is
-      written but has never been executed. The first run pulls Godot's
-      export templates (~1 GB) into a separate image layer. Expect to have
-      to fix something: `export_presets.cfg` was written by hand, and the
-      `.glb` and layout JSON are loaded at run time, so they have to be
-      caught by the preset's `include_filter`.
-- [ ] **Add a browser end-to-end check.** Skiagraph's
-      `godot/e2e/test_web_viewer.py` loads the exported build in headless
-      Chromium with Playwright and asserts the scene logged a successful
-      load with no JS errors. The same shape of test would catch an export
-      that silently ships without the model.
+- [x] **Run the web export.** Five things were wrong; `godot/README.md`
+      ("What making it playable found") lists them. The worst: an imported
+      `.glb` is left out of the pack, so the build shipped without its table.
+- [x] **Add a browser end-to-end check.** `godot/e2e/web_smoke.py` loads the
+      export in Playwright's Chromium, clicks Play, drags a shot and checks
+      it was scored with no page errors. It caught the missing `.glb`.
+- [ ] **Have a person play the web build.** Everything above was driven by
+      scripts. Things only a human will judge: does the drag-to-shoot feel
+      right, is full power too much or too little, do skittles fall too
+      easily (random play drops one on about a third of shots, but random
+      play aims up the middle where the black stands), is touch usable on
+      a phone.
+- [ ] **Side spin, and aim-then-power.** The two ideas worth taking from
+      Shadowfetch Pool (MIT): a torque impulse for side, and aiming with
+      the mouse while setting power separately (wheel, or a held button).
+      The aim guide's 90° rule is only exact without spin, so spin needs
+      the guide to say so.
 - [ ] **Try VR.** `scripts/xr_rig.gd` is written against OpenXR and falls
       back cleanly when no runtime answers — which is all that has ever been
       tested. Needs a headset. Expect the cue to be the hard part: pointing
       a controller and pulling the trigger is a placeholder, not a cue
       action.
-- [ ] **A rules engine.** The game scores pots and nothing else. Missing:
-      the break (your turn continues while you keep potting), the skittle
-      penalties (white = lose the break's score, black = lose everything),
-      fouls, and the timer that drops the bar. `game.set_gate(true)` already
-      exists and nothing calls it.
-- [ ] **Rack the balls properly.** They currently sit in a row near the
-      player's end. A real game starts with the red on its spot, the white
-      in the D, and the rest in the tray.
+- [x] **A rules engine.** `scripts/rules.gd`: breaks, the red doubling,
+      white/black skittle penalties, the opening shot on the red, misses and
+      balls left in baulk returned, one or two players, and a clock that
+      drops the bar. Not yet: the last-ball rule (only the 100 or 200, off a
+      side cushion), and the 2-player game has no handicap or turn timer.
+- [x] **Rack the balls properly.** Red on its spot, the rest in the tray,
+      each shot played from the tray into the D.
 - [ ] **Use the rest of the model.** The game ignores `--variant full`
-      colours, the scoreboard and the cue.
+      colours, the scoreboard and the printed cue (it draws its own). The
+      felt is painted on in the game: the bed mesh is the printed slab.
 
 ---
 

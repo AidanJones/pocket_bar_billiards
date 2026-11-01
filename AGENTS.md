@@ -42,10 +42,10 @@ faithful *approximation* of a standard English table, not a copy of one.
 | `check.py` | Design-rule checks. Must pass, including `--all`. |
 | `render.py` | Software-rasterised previews, the layout plan, and the 1:1 A4 felt template PDF. |
 | `gltf.py` | The same model as a `.glb` for the game, plus the JSON it needs. Life size by default. |
-| `godot/` | Godot 4.3 project: the browser/VR game and the ball-return physics test. See `godot/README.md`. |
+| `godot/` | Godot 4.3 project: the browser/VR game, the ball-return physics test, a browser end-to-end test (`e2e/`). See `godot/README.md`. |
 | `README.md` | Build guide for humans (BOM, print settings, assembly, rules). |
 | `TODO.md` | What is done, what is unverified, what to do next. Read it before planning work. |
-| `stl/`, `stl_coupon/`, `previews/`, `godot/assets/` | Generated, and committed so a clone is runnable. Never hand-edit; regenerate. |
+| `stl/`, `stl_coupon/`, `previews/`, `godot/assets/`, `godot/screenshots/` | Generated, and committed so a clone is runnable. Never hand-edit; regenerate. (`godot/assets/table.glb.import` is the exception: hand-written, it keeps the `.glb` raw in the web build.) |
 
 Dependencies: Python 3.10+, `numpy`, `matplotlib` (render only). The game
 needs Docker (Godot runs in a container; there is no native install and no
@@ -115,6 +115,18 @@ behaviour rather than shape:
 python gltf.py                              # refresh godot/assets/
 python godot/tools/physics_test.py --return sorted
 ```
+
+If you touched the game (`godot/scripts/`), also run the headless soak and
+the browser check, and refresh the README screenshots if it looks different:
+
+```bash
+cd godot && docker compose run --rm godot --headless --quit-after 400000 -- --autoplay --shots 30
+python godot/tools/web_export.py && python godot/e2e/web_smoke.py
+python godot/tools/screenshots.py
+```
+
+The containers run as `$HOST_UID:$HOST_GID` (the Python tools set these;
+plain `docker compose` defaults to 1000).
 
 ---
 
@@ -304,8 +316,8 @@ Also keep: all sizes driven by `Spec`/`Dims`, splitting automatic, and
   front of Godot's solver, which is below what it handles reliably; the
   smoke test says so when it sees one. Real tables do not sort at all: they
   return every ball to one trough and the players keep score.
-- The game has no rules engine yet — it scores pots and that is all. No
-  break tracking, no skittle penalties, no timer, no second player.
+- The game's rules (`godot/scripts/rules.gd`) lack the last-ball rule, and
+  no person has played the web build yet — only scripts have.
 - The sorted return costs 20 extra pieces and a plate, which is why it is
   not the default.
 - No automatic timer (idea: ESP32 + micro servo dropping the gate after

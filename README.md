@@ -7,6 +7,11 @@ it resizes to the balls you can buy and the printer you actually own.
 
 ![assembled](previews/preview_assembled.png)
 
+The same model is also a game you can play in a browser — see
+[§9](#9-play-it-on-screen):
+
+![lining up a shot in the browser game](godot/screenshots/aim.png)
+
 **Start here:** print the fit-test coupon (one plate, about an hour), check
 it, then print the Mini table.
 
@@ -290,13 +295,31 @@ rather than a copy of one.
 
 ## 9. Play it on screen
 
-The same model drives a Godot game — in a browser now, in VR when you plug a
-headset in:
+The same model drives a Godot game, playable in a browser — and in VR when
+you plug a headset in. The table, holes, ramp and return are the generated
+geometry, life size: a potted ball really drops through the hole, rolls down
+the ramp and arrives back in the tray before you can play it again.
 
 ```bash
 python gltf.py                              # table.glb for the game
 python godot/tools/web_export.py --serve    # http://localhost:8070
 ```
+
+| | |
+|---|---|
+| ![start screen](godot/screenshots/menu.png) | ![from above, mid-game](godot/screenshots/overhead.png) |
+
+**Playing.** Drag back from the ball and let go — the further you pull, the
+harder the shot (the bar goes green → amber → red). While you aim, a ghost
+ball shows where it will make contact, and lines show where the ball it hits
+will go and where yours will glance off. Right-drag or the arrow keys move
+your ball within the D, **Tab** swaps it for another from the tray, **C**
+switches to the overhead camera, the wheel zooms.
+
+It plays the rules in §7: one or two players, breaks, the red doubling, the
+white and black skittle penalties, the opening shot on the red, misses and
+balls left in baulk going back to the tray, and a 3, 5 or 10 minute clock
+after which the bar drops and the game runs down.
 
 It is also how the ball return gets tested without printing anything:
 

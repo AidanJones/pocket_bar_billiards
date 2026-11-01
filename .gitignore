@@ -1,0 +1,7 @@
+# local python env
+.venv/
+__pycache__/
+*.pyc
+
+# the original download; the generator replaces it
+desk-bar-billiards.zip

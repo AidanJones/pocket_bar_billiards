@@ -1,0 +1,2 @@
+numpy>=1.24
+matplotlib>=3.7   # render.py only; the generator and checks need numpy alone

@@ -1,0 +1,9 @@
+file,role,qty,material,colour,size_mm,orientation,plate,walls,infill,supports,volume_cm3,filament_cm3,note
+test_hole_gauge.stl,test,1,pla,#8a5a2b,97.2 x 21.4 x 5.0,straight,textured,4,30,no,7.84,6.88,"five holes, -0.4 to +0.4 mm; drop a ball through each and note which one you want (nominal 11.43 mm)"
+test_playfield_corner.stl,test,1,pla,#8a5a2b,71.4 x 60.0 x 5.0,straight,textured,4,30,no,20.92,13.8,"a corner of the real slab: checks thickness, flatness and the hole over felt"
+test_wall.stl,test,1,pla,#8a5a2b,19.0 x 60.0 x 40.3,straight,textured,3,15,no,13.27,9.31,checks wall height against the slab and the clamp flange
+test_ledge.stl,test,1,pla,#8a5a2b,5.0 x 56.0 x 4.0,straight,textured,3,15,no,0.67,0.67,"glue to the test wall, then rest the corner tile on it: the surface should land flush with the wall top"
+test_rail.stl,test,1,pla,#8a5a2b,10.4 x 60.0 x 9.3,straight,textured,3,15,no,5.72,3.34,press 2.0 mm cord into the groove; the nose should touch a ball 6.0 mm above the felt
+test_ramp.stl,test,1,pla,#8a5a2b,60.0 x 60.0 x 4.8,straight,textured,2,6,no,11.48,8.04,"the front of the return ramp; check a ball rolls down it, not along a layer line"
+test_skittle.stl,test,1,pla,#8a5a2b,14.4 x 14.4 x 16.0,straight,textured,2,8,no,1.07,0.62,"must stand up, and topple when a ball brushes it"
+test_clamp.stl,test,1,pla,#8a5a2b,46.5 x 47.0 x 14.0,straight,textured,4,40,no,8.48,7.06,hook it over the test wall's flange and onto a 25 mm desk

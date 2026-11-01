@@ -1,0 +1,26 @@
+file,role,qty,material,colour,size_mm,orientation,plate,walls,infill,supports,volume_cm3,filament_cm3,note
+playfield_r1_c1.stl,playfield,1,pla,#8a5a2b,172.1 x 130.1 x 5.0,straight,textured,4,30,no,111.92,68.3,"printed TOP FACE DOWN so the playing surface is dead flat - felt covers it, so any plate will do"
+playfield_r2_c1.stl,playfield,1,pla,#8a5a2b,172.1 x 166.1 x 5.0,straight,textured,4,30,no,138.27,85.8,"printed TOP FACE DOWN so the playing surface is dead flat - felt covers it, so any plate will do"
+splice_cross_1.stl,playfield,1,pla,#8a5a2b,162.1 x 16.0 x 2.0,straight,textured,3,100,no,5.19,5.19,glue under the crossways tile seam
+side_wall_right_1.stl,frame,1,pla,#8a5a2b,19.0 x 177.2 x 40.3,straight,textured,3,15,no,39.17,26.61,stands on its own flange; piece _1 is the front
+side_wall_right_2.stl,frame,1,pla,#8a5a2b,19.0 x 177.2 x 40.3,straight,textured,3,15,no,39.17,26.61,stands on its own flange; piece _1 is the front
+ledge_strip_right_1.stl,frame,1,pla,#8a5a2b,5.0 x 287.2 x 4.0,diagonal,textured,3,15,no,3.45,3.45,"glue inside the wall, flat top level with the slab underside"
+side_wall_left_1.stl,frame,1,pla,#8a5a2b,19.0 x 177.2 x 40.3,straight,textured,3,15,no,39.17,26.61,stands on its own flange; piece _1 is the front
+side_wall_left_2.stl,frame,1,pla,#8a5a2b,19.0 x 177.2 x 40.3,straight,textured,3,15,no,39.17,26.61,stands on its own flange; piece _1 is the front
+ledge_strip_left_1.stl,frame,1,pla,#8a5a2b,5.0 x 287.2 x 4.0,diagonal,textured,3,15,no,3.45,3.45,"glue inside the wall, flat top level with the slab underside"
+back_wall.stl,frame,1,pla,#8a5a2b,172.3 x 40.3 x 8.0,straight,textured,3,15,no,29.82,18.97,ledge faces inward
+front_beam.stl,frame,1,pla,#8a5a2b,172.3 x 13.0 x 8.0,straight,textured,3,15,no,11.03,7.94,ledge faces the far end; its front face is the back of the gate slot
+apron_beam.stl,frame,1,pla,#8a5a2b,172.3 x 8.0 x 13.0,straight,textured,3,15,no,11.03,8.7,glue 3.6 mm in front of the front beam: that gap is the gate slot
+tray_lip.stl,frame,1,pla,#8a5a2b,172.3 x 4.0 x 11.6,straight,textured,3,15,no,8.01,6.55,front of the ball tray; sits at the desk edge
+ramp_r1_c1.stl,ramp,1,pla,#8a5a2b,171.7 x 172.9 x 10.7,straight,textured,2,6,no,182.41,69.97,"thin end to the front; nobody sees these, keep the infill low"
+ramp_r2_c1.stl,ramp,1,pla,#8a5a2b,171.7 x 172.9 x 19.7,straight,textured,2,6,no,451.31,90.8,"thin end to the front; nobody sees these, keep the infill low"
+rail_side_right_1.stl,rail,1,pla,#8a5a2b,10.4 x 304.8 x 9.3,diagonal,textured,3,15,no,29.04,16.16,groove faces inward; stagger its seams off the wall seams
+rail_side_left_1.stl,rail,1,pla,#8a5a2b,10.4 x 304.8 x 9.3,diagonal,textured,3,15,no,29.04,16.16,groove faces inward; stagger its seams off the wall seams
+rail_far.stl,rail,1,pla,#8a5a2b,162.1 x 10.4 x 9.3,straight,textured,3,15,no,15.45,8.68,fits between the side rails
+rail_front.stl,rail,1,pla,#8a5a2b,162.1 x 10.4 x 9.3,straight,textured,3,15,no,15.45,8.68,fits between the side rails
+time_bar_gate.stl,play,1,pla,#8a5a2b,171.5 x 54.1 x 3.0,straight,textured,4,25,no,20.52,17.13,drop it into the slot when time is up
+skittle.stl,play,3,pla,#8a5a2b,14.4 x 14.4 x 16.0,straight,textured,2,8,no,1.07,0.62,"print upright, no supports; keep them light so they topple"
+cue_tip_ferrule.stl,cue,1,pla,#8a5a2b,10.4 x 10.4 x 21.0,straight,textured,3,30,no,0.94,0.94,glue onto an 8 mm dowel; face it with a 9 mm leather disc
+cue_butt.stl,cue,1,pla,#8a5a2b,18.0 x 18.0 x 80.0,straight,textured,3,15,no,12.66,8.24,
+desk_clamp_25mm.stl,mount,2,pla,#8a5a2b,46.5 x 47.0 x 14.0,straight,textured,4,40,no,8.48,7.06,"for desks about 21-29 mm thick (PETG survives the flexing better, if you have a second spool)"
+clamp_shim.stl,mount,2,pla,#8a5a2b,50.0 x 14.0 x 12.0,straight,textured,3,25,no,5.25,3.23,tap in between clamp jaw and desk underside

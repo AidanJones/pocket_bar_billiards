@@ -76,6 +76,7 @@ All three share one argument parser, so any option works on any of them:
 | `--printer p1s\|a1mini\|mk4\|…` | printer profile (default `p1s`) |
 | `--material pla\|petg\|asa` | filament profile (default `pla`) |
 | `--variant simple\|full` | `simple` = one filament, fewest pieces (default) |
+| `--return shared\|sorted` | `shared` = one trough, as a real table (default); `sorted` = a lane per hole |
 | `--coupon` | the small fit-test set instead of the table |
 | `--ball`, `--cord`, `--slope`, `--felt`, `--desk`, `--colour`, `--bed`, `--out` | overrides |
 | `--list`, `--fit` | show the profiles / which sizes fit this printer |
@@ -189,6 +190,13 @@ to make a change pass** — fix the geometry, or ask the owner.
 10. Nothing needs supports: every part is posed so no overhang exceeds 45°.
 11. `--variant simple` really is one filament and one colour, and with felt
     it needs only one build plate.
+12. The scoreboard markers are captive (foot wider than the slot neck), run
+    free in their channel, pass the neck with 0-0.4 mm of play, and do not
+    crowd each other at the chosen pitch.
+13. With `--return sorted`: every hole has a lane at least a ball plus two
+    fins wide, no lane wall passes under a hole, every chute leaves a ball's
+    headroom, and a chute only ever crosses a lane whose own hole is nearer
+    the player — so nothing is rolling down it at the time.
 
 Also keep: all sizes driven by `Spec`/`Dims`, splitting automatic, and
 `check.py --all` green across every printer in `profiles.py`.
@@ -210,6 +218,9 @@ Also keep: all sizes driven by `Spec`/`Dims`, splitting automatic, and
 | Clamps for other desks | `--desk`, or the `[18, 25, 32, 40]` list in `table.design` |
 | Steeper return | `--slope` |
 | What goes in the fit-test coupon | `table.coupon()` |
+| How the scored return assigns lanes | `return_lanes()` in `table.py` |
+| Scoreboard size, rows or marker fit | the `sb_*` block in `Dims` (nozzle-driven, not ball-driven) |
+| The paper scale | `render.scoreboard_scale()` |
 | A new render angle | `render(..., view=(azimuth_deg, elevation_deg))` |
 
 ---
@@ -247,5 +258,15 @@ Also keep: all sizes driven by `Spec`/`Dims`, splitting automatic, and
 - `pack_plates()` is a shelf pack with a special case for 45° strips, so its
   plate count is an upper bound, not the slicer's answer.
 - The filament estimate in `parts.csv` is a shell-plus-infill approximation.
-- No scoreboard. No automatic timer (idea: ESP32 + micro servo dropping the
-  gate after ~15 min).
+- The scoreboard markers are a friction fit, not a detent: nothing printed
+  flat like that would spring. A sprung pawl would need a part with a thin
+  cantilever, which `prism` can draw but which wants testing.
+- `--return sorted` is built but has never been printed. The lane geometry
+  is checked, but whether a dropped ball actually ends up in the right lane
+  is a physics question, not a geometry one — it wants testing in a
+  simulation or on a plate before anyone trusts it. Real tables do not do
+  this: they return every ball to one trough and the players keep score.
+- The sorted return costs 20 extra pieces and a plate, which is why it is
+  not the default.
+- No automatic timer (idea: ESP32 + micro servo dropping the gate after
+  ~15 min).

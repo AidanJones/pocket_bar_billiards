@@ -141,6 +141,13 @@ def panel(x0, y0, x1, y1, z0, z1, holes=()):
     return prism(rect(x0, y0, x1, y1), cuts, z0, z1, "xy")
 
 
+def flat_plate(width, height, z0, z1, cutouts=()):
+    """A rectangular plate in the XY plane, centred on the origin, with
+    arbitrary cut-out polygons (slots, windows) through its thickness."""
+    outline = rect(-width / 2, -height / 2, width / 2, height / 2)
+    return prism(outline, list(cutouts), z0, z1, "xy")
+
+
 def tiled_panel(x0, y0, x1, y1, z0, z1, holes, max_tile, margin, keep=1.0):
     """A panel too big for the bed, cut into tiles that miss every hole.
 
@@ -330,6 +337,100 @@ def drop_bar(half_width, z_bottom, z_band, tab_half, z_tab, finger_r, max_width=
             suffix = f"_{side}" + (f"_{k + 1}" if len(edges) > 2 else "")
             pieces.append((suffix, band(a, b), []))
     return pieces
+
+
+# ----------------------------------------------------------- sorted return
+def lane_fin(w0, w1, u0, u1, floor, ceiling, clearance=0.3):
+    """A thin wall that divides a sloping floor into lanes.
+
+    `floor(u)` is the surface it stands on, so the fin's underside follows a
+    ramp exactly instead of leaving a wedge of daylight — the one shape the
+    prism engine can do here, since the slope runs along the profile and the
+    thickness along the extrusion. It reaches `ceiling`, so it is trapped
+    between the ramp and the slab above and needs no bracket.
+    """
+    profile = [(u0, floor(u0) + clearance), (u1, floor(u1) + clearance),
+               (u1, ceiling), (u0, ceiling)]
+    return strip(profile, w0, w1, "yz")
+
+
+def cross_chute(w0, w1, u_high, u_low, z_floor, rise, lip=0.8):
+    """A little trough that tips a ball sideways as it lands in it.
+
+    Extruded along the direction the ball was travelling, so its floor can
+    fall across that direction. Used where two holes share a centreline and
+    their balls have to end up in different lanes.
+    """
+    return strip([(u_low, z_floor), (u_high, z_floor),
+                  (u_high, z_floor + rise), (u_low, z_floor + lip)],
+                 w0, w1, "xz")
+
+
+# ------------------------------------------------------------- scoreboards
+def _dedupe(pts, eps=1e-7):
+    """Drop points that repeat the previous one (or the first, at the wrap).
+
+    Arcs that meet end to end share a point, and a repeated vertex makes the
+    triangulator produce a zero-area ear and a non-watertight mesh.
+    """
+    out = []
+    for p in pts:
+        if not out or abs(p[0] - out[-1][0]) > eps or abs(p[1] - out[-1][1]) > eps:
+            out.append(p)
+    while len(out) > 3 and abs(out[-1][0] - out[0][0]) <= eps and abs(out[-1][1] - out[0][1]) <= eps:
+        out.pop()
+    return out
+
+
+def stadium_slot(centre_u, centre_z, length, radius, n=14):
+    """A straight slot with semicircular ends, lying along u."""
+    half = max(0.0, length / 2 - radius)
+    return _dedupe(arc(radius, centre_u + half, centre_z, -90, 90, n)
+                   + arc(radius, centre_u - half, centre_z, 90, 270, n))
+
+
+def scalloped_slot(centre_u, centre_z, steps, pitch, bay_r, neck_r, n=8):
+    """A slot with a round bay at every step, joined by a narrower neck.
+
+    A marker running in it slides the whole way — the necks are not a
+    snap fit, there is nothing here that could spring — but it settles
+    visibly into a bay, so the reading is never ambiguous.
+    """
+    if not 0 < neck_r < bay_r:
+        raise ValueError("neck must be narrower than a bay and wider than nothing")
+    phi = math.degrees(math.asin(neck_r / bay_r))
+    if pitch <= 2 * bay_r * math.cos(math.radians(phi)):
+        raise ValueError("bays overlap: increase the pitch")
+    span = (steps - 1) * pitch
+    us = [centre_u - span / 2 + i * pitch for i in range(steps)]
+    pts = []
+    for i, u in enumerate(us):                      # bottom edge, left to right
+        pts += arc(bay_r, u, centre_z,
+                   180.0 if i == 0 else 180.0 + phi,
+                   360.0 if i == steps - 1 else 360.0 - phi, n)
+    for i in reversed(range(steps)):                # top edge, right to left
+        pts += arc(bay_r, us[i], centre_z,
+                   0.0 if i == steps - 1 else phi,
+                   180.0 if i == 0 else 180.0 - phi, n)
+    return _dedupe(pts)
+
+
+def tee_marker(shaft_r, foot_r, knob_r, foot_t, face_t, knob_h, gap=0.4, n=40):
+    """A scoreboard marker: wide foot, shaft through the slot, knob on top.
+
+    Trapped between the board's plates when they are glued up, so it cannot
+    come out, and pushed along with a fingertip.
+    """
+    z_shaft = foot_t + gap
+    z_knob = z_shaft + face_t
+    prof = [(0, 0), (foot_r, 0), (foot_r, foot_t), (shaft_r, foot_t),
+            (shaft_r, z_knob), (knob_r, z_knob), (knob_r, z_knob + knob_h * 0.45)]
+    for k in range(1, 7):                            # domed top, prints clean
+        t = k / 6 * math.pi / 2
+        prof.append((knob_r * math.cos(t),
+                     z_knob + knob_h * 0.45 + knob_h * 0.55 * math.sin(t)))
+    prof[-1] = (0, z_knob + knob_h)
+    return lathe(prof, n)
 
 
 # ------------------------------------------------------------ test coupons

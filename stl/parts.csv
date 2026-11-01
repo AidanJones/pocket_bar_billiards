@@ -20,6 +20,10 @@ rail_far.stl,rail,1,pla,#8a5a2b,162.1 x 10.4 x 9.3,straight,textured,3,15,no,15.
 rail_front.stl,rail,1,pla,#8a5a2b,162.1 x 10.4 x 9.3,straight,textured,3,15,no,15.45,8.68,fits between the side rails
 time_bar_gate.stl,play,1,pla,#8a5a2b,171.5 x 54.1 x 3.0,straight,textured,4,25,no,20.52,17.13,drop it into the slot when time is up
 skittle.stl,play,3,pla,#8a5a2b,14.4 x 14.4 x 16.0,straight,textured,2,8,no,1.07,0.62,"print upright, no supports; keep them light so they topple"
+score_back.stl,play,1,pla,#8a5a2b,107.5 x 50.2 x 1.6,straight,textured,3,30,no,8.63,8.63,the backing plate. Print a second set for your opponent
+score_track.stl,play,1,pla,#8a5a2b,107.5 x 50.2 x 2.4,straight,textured,3,30,no,7.91,7.91,the middle plate: each slot is the channel a marker's foot runs in
+score_face.stl,play,1,pla,#8a5a2b,107.5 x 50.2 x 1.6,straight,textured,3,30,no,6.77,6.77,the top plate; the ten bays in a row are its digits. Glue the paper scale from the template PDF alongside the rows
+score_marker.stl,play,3,pla,#8a5a2b,7.2 x 7.2 x 8.5,straight,textured,3,40,no,0.24,0.24,one per row. Drop them into the channels before gluing the top plate on; sand the shaft if one is stiff
 cue_tip_ferrule.stl,cue,1,pla,#8a5a2b,10.4 x 10.4 x 21.0,straight,textured,3,30,no,0.94,0.94,glue onto an 8 mm dowel; face it with a 9 mm leather disc
 cue_butt.stl,cue,1,pla,#8a5a2b,18.0 x 18.0 x 80.0,straight,textured,3,15,no,12.66,8.24,
 desk_clamp_25mm.stl,mount,2,pla,#8a5a2b,46.5 x 47.0 x 14.0,straight,textured,4,40,no,8.48,7.06,"for desks about 21-29 mm thick (PETG survives the flexing better, if you have a second spool)"

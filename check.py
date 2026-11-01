@@ -33,6 +33,11 @@ class Checker:
             self.fails.append(msg)
 
 
+def _hole_x(holes, lanes, i):
+    """The X of the hole that feeds lane `i` (its centre minus the nudge)."""
+    return lanes[i][1] - lanes[i][3]
+
+
 def run(design: T.Design, rows, chk: Checker):
     d, spec = design.dims, design.spec
     B, r, H = d.ball, d.hole_r, design.holes
@@ -129,6 +134,58 @@ def run(design: T.Design, rows, chk: Checker):
             chk.rule(not clash, f"{part.name} covers no hole"
                                 + (f" (fouls {clash})" if clash else ""))
 
+    # --- 11b. the scored return sorts, and nothing jams -----------------
+    if spec.sorted_return and not coupon:
+        fin_t = max(2.0, 5 * pr.nozzle)
+        bounds, lanes = T.return_lanes(d, H, fin_t)
+        need = B + 1.0 + fin_t
+        chk.rule(len(lanes) == len(H), f"a lane for each of the {len(H)} holes")
+        for i, (score, _x, _y, _off) in enumerate(lanes):
+            width = bounds[i + 1] - bounds[i]
+            chk.rule(width >= need, f"{score:>3} lane {width:.1f} mm >= ball + "
+                                    f"{1.0 + fin_t:.1f}")
+        for b in bounds[1:-1]:
+            fouled = [s_ for s_, hx, _hy in H if abs(hx - b) < r + fin_t / 2]
+            chk.rule(not fouled, f"lane wall at x={b:.1f} is clear of every hole"
+                                 + (f" (fouls {fouled})" if fouled else ""))
+        for i, (score, _x, hy, offset) in enumerate(lanes):
+            if offset == 0.0:
+                continue
+            hx = _hole_x(H, lanes, i)
+            j = max(k for k in range(len(bounds) - 1) if bounds[k] < hx)
+            chk.rule(lanes[j][2] < hy,
+                     f"{score} chute crosses the {lanes[j][0]} lane, which is "
+                     "finished with by then")
+        for part in design.parts:
+            if part.name.startswith("return_chute"):
+                head = d.zp - part.mesh.v[:, 2].max()
+                chk.rule(head >= B, f"{part.name}: {head:.1f} mm of headroom >= a ball")
+            if part.name.startswith("lane_fin"):
+                top = part.mesh.v[:, 2].max()
+                chk.rule(abs(top - d.zp) < 1e-6, f"{part.name} reaches the slab above")
+        scored = sorted(lane[0] for lane in lanes)
+        chk.rule(scored == sorted(s_ for s_, _x, _y in H),
+                 "every score has somewhere to land")
+
+    # --- 12. the scoreboard works as a mechanism ------------------------
+    if not coupon:
+        neck, shaft = 2 * d.sb_neck_r, 2 * d.sb_shaft_r
+        chk.rule(neck >= shaft, f"marker shaft {shaft:.2f} passes the {neck:.2f} mm neck")
+        chk.rule(neck - shaft <= 0.4, "marker is a friction fit, not a rattle")
+        chk.rule(2 * d.sb_foot_r > neck,
+                 f"marker foot {2 * d.sb_foot_r:.2f} > neck {neck:.2f}: it cannot come out")
+        chk.rule(d.sb_foot_t < d.sb_track_t, "marker foot runs free in its channel")
+        chk.rule(2 * d.sb_foot_r < 2 * d.sb_track_r, "marker foot fits the channel width")
+        chk.rule(d.sb_pitch > 2 * d.sb_knob_r,
+                 "neighbouring markers do not touch, so a reading is unambiguous")
+        chk.rule(d.sb_bay_r > d.sb_neck_r, "a bay is wider than a neck, so it reads")
+        chk.rule(d.sb_row_pitch - 2 * d.sb_track_r >= 4 * spec.printer.nozzle,
+                 "material left between the channels")
+        reach = sum(9 * 10 ** i for i in range(d.sb_rows))
+        chk.rule(reach >= 999, f"scoreboard reaches {reach}")
+        for nm in ("score_back", "score_track", "score_face", "score_marker"):
+            chk.rule(any(r_["file"] == nm + ".stl" for r_ in rows), f"{nm} is emitted")
+
     # --- 10. printability ----------------------------------------------
     chk.rule(not any(r_["supports"] == "yes" for r_ in rows), "no part needs supports")
     if not coupon:
@@ -142,13 +199,15 @@ def run(design: T.Design, rows, chk: Checker):
 def sweep() -> int:
     """Every size x variant x printer, quietly: just the failures."""
     bad = 0
-    for pkey in P.PRINTERS:
-        for skey in P.SIZES:
-            for variant in ("simple", "full"):
+    combos = [(p_, s_, v_, r_) for p_ in P.PRINTERS for s_ in P.SIZES
+              for v_ in ("simple", "full") for r_ in (False, True)]
+    for pkey, skey, variant, sorted_return in combos:
                 spec = T.Spec(size=P.size(skey), printer=P.printer(pkey),
                               material=P.material("pla"), variant=variant,
-                              cues=1 if variant == "simple" else 2)
-                label = f"{pkey:<8} {skey:<9} {variant:<7}"
+                              cues=1 if variant == "simple" else 2,
+                              sorted_return=sorted_return)
+                label = (f"{pkey:<8} {skey:<9} {variant:<7} "
+                         f"{'sorted' if sorted_return else 'shared'}")
                 try:
                     design = T.design(spec)
                     rows = bb.measure(design)

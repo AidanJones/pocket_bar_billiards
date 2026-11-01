@@ -4,7 +4,7 @@
 - Variant: **simple**  - one filament, no colour changes
 - Filament: **PLA**, nozzle 220 C / bed 60 C
 - Layer height 0.20 mm, 0.4 mm nozzle
-- 25 files, 29 pieces, roughly **712 g** of filament at the walls and infill below (an estimate - the slicer is the authority)
+- 29 files, 35 pieces, roughly **742 g** of filament at the walls and infill below (an estimate - the slicer is the authority)
 
 ## Before you start
 
@@ -64,6 +64,10 @@ One plate for the lot - the textured PEI it came with is fine. The playfield til
 |---|---|---|---|---|---|---|---|---|
 | `time_bar_gate.stl` | 1 | PLA | 4 | 25% | textured | 171.5 x 54.1 x 3.0 | 21 | drop it into the slot when time is up |
 | `skittle.stl` | 3 | PLA | 2 | 8% | textured | 14.4 x 14.4 x 16.0 | 2 | print upright, no supports; keep them light so they topple |
+| `score_back.stl` | 1 | PLA | 3 | 30% | textured | 107.5 x 50.2 x 1.6 | 11 | the backing plate. Print a second set for your opponent |
+| `score_track.stl` | 1 | PLA | 3 | 30% | textured | 107.5 x 50.2 x 2.4 | 10 | the middle plate: each slot is the channel a marker's foot runs in |
+| `score_face.stl` | 1 | PLA | 3 | 30% | textured | 107.5 x 50.2 x 1.6 | 8 | the top plate; the ten bays in a row are its digits. Glue the paper scale from the template PDF alongside the rows |
+| `score_marker.stl` | 3 | PLA | 3 | 40% | textured | 7.2 x 7.2 x 8.5 | 1 | one per row. Drop them into the channels before gluing the top plate on; sand the shaft if one is stiff |
 
 ### Desk mounting
 

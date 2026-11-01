@@ -14,6 +14,7 @@ dependencies are numpy and matplotlib.
 """
 from __future__ import annotations
 
+import dataclasses
 import math
 import os
 
@@ -41,7 +42,9 @@ def hexrgb(h):
 def scene(design: T.Design, exploded=False, cutaway=False, desk=True):
     """[(mesh, rgb)] for the whole table, in assembled position."""
     lay = design.layout
-    skip = ("cue_", "clamp_shim", "skittle", "hole_ring", "test_")
+    # The scoreboard and the loose accessories live beside the table, not on
+    # it; they get their own views.
+    skip = ("cue_", "clamp_shim", "skittle", "hole_ring", "test_", "score_")
     items = []
     for part in design.parts:
         if part.name.startswith(skip):
@@ -97,6 +100,22 @@ def plate_scene(design: T.Design):
                             [], -4, -1, "xy"), hexrgb(shade)))
         for part, mesh in placed:
             items.append((mesh.translate(dx, 0, 0), hexrgb(part.colour)))
+    return items
+
+
+def scoreboard_scene(design: T.Design, score=137):
+    """The scoreboard as it comes out, with the markers showing `score`."""
+    d = design.dims
+    items = []
+    for name in ("score_back", "score_track", "score_face"):
+        part = design.parts.by_name(name) if hasattr(design.parts, "by_name") else \
+            next(p for p in design.parts if p.name == name)
+        items.append((part.mesh, hexrgb(part.colour)))
+    marker = next(p for p in design.parts if p.name == "score_marker")
+    bays = T.scoreboard_bays(d)
+    for y, digit in zip(T.scoreboard_rows(d), f"{score:0{d.sb_rows}d}"):
+        items.append((marker.mesh.translate(bays[int(digit)], y, 0),
+                      hexrgb(marker.colour)))
     return items
 
 
@@ -226,6 +245,44 @@ def layout_plan(design: T.Design, path):
 
 
 # ------------------------------------------------------------ felt template
+def scoreboard_scale(design: T.Design, fig):
+    """A 1:1 paper scale to cut out and glue onto the scoreboard."""
+    d = design.dims
+    # Size the axes box in page fractions so a millimetre really is a
+    # millimetre: letting equal-aspect pick the box would quietly rescale it.
+    pad = 10.0
+    vw, vh = d.sb_w + 2 * pad, d.sb_h + 2 * pad
+    ax = fig.add_axes([PAGE_M / PAGE_W, 0.30, vw / PAGE_W, vh / PAGE_H])
+    ax.set_aspect("equal")
+    ax.axis("off")
+    ax.set_xlim(-vw / 2, vw / 2)
+    ax.set_ylim(-vh / 2, vh / 2)
+    ax.add_patch(Rectangle((-d.sb_w / 2, -d.sb_h / 2), d.sb_w, d.sb_h,
+                           fc="none", ec="0.6", lw=0.6))
+    rows = T.scoreboard_rows(d)
+    bays = T.scoreboard_bays(d)
+    for y in rows:                                   # where the slots will be
+        ax.add_patch(Rectangle((-d.sb_run / 2 - d.sb_bay_r, y - d.sb_bay_r),
+                               d.sb_run + 2 * d.sb_bay_r, 2 * d.sb_bay_r,
+                               fc="none", ec="0.85", lw=0.4))
+    strip_y = min(rows) - d.sb_track_r
+    for i, x in enumerate(bays):                     # the digit strip
+        ax.text(x, (strip_y - 0.6 - d.sb_h / 2) / 2, str(i), ha="center",
+                va="center", fontsize=7)
+    for y in (-d.sb_h / 2, strip_y - 0.6):
+        ax.plot([-d.sb_w / 2, d.sb_w / 2], [y, y], "k", lw=0.4, ls="--")
+    inner_x = -d.sb_run / 2 - d.sb_track_r - 0.6     # just clear of the slot ends
+    outer_x = -d.sb_w / 2                             # the plate's own edge
+    for y, mult in zip(rows, ("x100", "x10", "x1")):
+        ax.text((inner_x + outer_x) / 2, y, mult, ha="center", va="center", fontsize=5.5)
+    for x in (outer_x, inner_x):
+        ax.plot([x, x], [-d.sb_h / 2, d.sb_h / 2], "k", lw=0.4, ls="--")
+    bar = fig.add_axes([0.62, 0.12, 50 / PAGE_W, 4 / PAGE_H])
+    bar.axis("off")
+    bar.add_patch(Rectangle((0, 0), 1, 1, fc="black", transform=bar.transAxes))
+    fig.text(0.62 + 52 / PAGE_W, 0.12, "50 mm", fontsize=7)
+
+
 def felt_template(design: T.Design, path):
     """True-scale cutting and marking template, tiled onto A4 (print at 100 %)."""
     d, lay = design.dims, design.layout
@@ -258,6 +315,22 @@ def felt_template(design: T.Design, path):
         ]
         for i, t in enumerate(lines):
             fig.text(0.08, 0.86 - i * 0.025, t, fontsize=9, family="monospace")
+        pdf.savefig(fig)
+        plt.close(fig)
+
+        fig = plt.figure(figsize=(PAGE_W / 25.4, PAGE_H / 25.4))
+        fig.text(0.08, 0.92, "Scoreboard scale", fontsize=14, fontweight="bold")
+        for i, t in enumerate([
+                "PRINT AT 100% / 'Actual size' - check the 50 mm bar below.",
+                "",
+                "Cut out the two dashed strips and glue them to score_face:",
+                "the digit strip under the bottom row, the multiplier strip",
+                "down the left-hand edge. The grey outline is the plate and",
+                "the grey bars are the slots - they are there to line it up,",
+                "not to cut.",
+        ]):
+            fig.text(0.08, 0.86 - i * 0.025, t, fontsize=9, family="monospace")
+        scoreboard_scale(design, fig)
         pdf.savefig(fig)
         plt.close(fig)
 
@@ -333,12 +406,18 @@ def main(argv=None) -> int:
     render(scene(design), (215, 36), out("preview_assembled.png"), balls=balls)
     render(scene(design, cutaway=True), (215, 36), out("preview_ball_return.png"))
     render(scene(design, exploded=True), (215, 28), out("preview_exploded.png"))
+    render(scoreboard_scene(design), (200, 52), out("preview_scoreboard.png"),
+           size=(1200, 900))
+    alt = dataclasses.replace(design.spec, sorted_return=not design.spec.sorted_return)
+    render(scene(T.design(alt), cutaway=True), (215, 44),
+           out("preview_sorted_return.png" if alt.sorted_return
+               else "preview_shared_return.png"))
     render(plate_scene(design), (0, 64), out("preview_plates.png"),
            size=(420 * len(plates) + 420, 1100))
     layout_plan(design, out("layout_plan.png"))
     pages = felt_template(design, out("felt_template_A4.pdf"))
-    print(f"{args.out}/: 4 renders ({len(plates)} build plate(s)), layout_plan.png, "
-          f"felt_template_A4.pdf ({pages} template pages)")
+    print(f"{args.out}/: 6 renders ({len(plates)} build plate(s)), layout_plan.png, "
+          f"felt_template_A4.pdf ({pages} template pages + the scoreboard scale)")
     return 0
 
 

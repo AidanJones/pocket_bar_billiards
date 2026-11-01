@@ -71,6 +71,7 @@ class Spec:
     desk: float = 25.0                # desk thickness for the simple clamp
     cues: int = 1
     colour: str = "#8a5a2b"           # the one filament, for "simple"
+    sorted_return: bool = False       # one lane per hole instead of one trough
 
     @property
     def rings(self) -> bool:
@@ -185,6 +186,32 @@ class Dims:
         self.peg_base = 0.5 * self.peg_cap
         self.peg_rim = PEG_RIM_FRAC * self.peg_h   # ball must pass under this
 
+        # -- scoreboard --------------------------------------------------
+        # A thing for human fingers, so it is sized by the nozzle and the hand,
+        # not by the ball: the Mini's scoreboard is the Large's scoreboard.
+        self.sb_rows = 3                            # hundreds, tens, units
+        self.sb_steps = 10                          # 0-9 on each row
+        self.sb_shaft_r = max(2.0, 5 * pr.nozzle)
+        self.sb_bay_r = self.sb_shaft_r + 0.6       # a marker settles in a bay
+        self.sb_neck_r = self.sb_shaft_r + 0.075    # light friction, not a snap fit
+        self.sb_foot_r = self.sb_shaft_r + 1.6      # wider than a neck, so captive
+        self.sb_knob_r = self.sb_shaft_r + 1.4
+        # Knobs must not crowd each other, or you cannot tell which bay a
+        # marker is sitting in.
+        self.sb_pitch = max(9.0, 2 * self.sb_knob_r + 2.5)
+        self.sb_row_pitch = max(12.0, 2 * self.sb_foot_r + 6.0)
+        self.sb_back_t = pr.quantise(max(1.6, 4 * pr.layer))
+        self.sb_track_t = pr.quantise(max(2.4, 6 * pr.layer))
+        self.sb_face_t = pr.quantise(max(1.6, 4 * pr.layer))
+        self.sb_foot_t = self.sb_track_t - 0.4      # runs free between the plates
+        self.sb_knob_h = max(4.5, 22 * pr.layer)
+        self.sb_track_r = self.sb_foot_r + self.clr
+        self.sb_run = (self.sb_steps - 1) * self.sb_pitch
+        sb_margin = max(8.0, 2 * self.sb_bay_r)   # room for the paper scale
+        self.sb_w = self.sb_run + 2 * max(self.sb_bay_r, self.sb_track_r) + 2 * sb_margin
+        self.sb_h = ((self.sb_rows - 1) * self.sb_row_pitch
+                     + 2 * self.sb_track_r + 2 * sb_margin)
+
         # -- how far a tile seam must stay from a hole -------------------
         self.seam_margin = max(6.0, 0.5 * ball)
 
@@ -212,6 +239,194 @@ class Design:
     def footprint(self):
         o = self.dims.overall
         return (o["x1"] - o["x0"], o["y1"] - o["y0"], o["z_top"])
+
+
+def _hole_order(holes):
+    """Holes left to right, resolving a shared centreline.
+
+    Where several holes sit on the same X they still need separate lanes, so
+    the one nearest the player takes the middle slot — nothing travels over
+    it — and the others go either side of it, farthest out first.
+    """
+    groups = {}
+    for score, x, y in holes:
+        groups.setdefault(round(x, 3), []).append((score, x, y))
+    ordered = []
+    for x in sorted(groups):
+        near_first = sorted(groups[x], key=lambda h: h[2])
+        if len(near_first) == 1:
+            ordered += near_first
+            continue
+        slot = [None] * len(near_first)
+        slot[len(slot) // 2] = near_first[0]
+        spare = near_first[1:][::-1]            # farthest hole to the left
+        for i, taken in enumerate(slot):
+            if taken is None:
+                slot[i] = spare.pop(0)
+        ordered += slot
+    return ordered
+
+
+def _blocked(x, zones):
+    return any(a <= x <= b for a, b in zones)
+
+
+def return_lanes(d: "Dims", holes, fin_t):
+    """Give every hole its own return lane. Returns `(bounds, lanes)`.
+
+    A lane boundary is a wall standing on the ramp, so it must never pass
+    under a hole: a ball landing on its edge would go either way. Most holes
+    are far enough apart that the midpoint between them is clear and the ball
+    drops straight into its own lane. Where two are closer than their own
+    width — the 30 and the 50 are 10 mm apart on the Mini and 11.4 mm wide —
+    the boundary is pushed past one of them and a chute under that hole tips
+    its ball across.
+
+    Two rules make it work. Lanes stay in X order however the layout is
+    edited, so no two ever cross, which is the whole trick: crossing channels
+    cannot be built here. And a ball is only ever chuted out of a lane whose
+    own hole is nearer the player, so nothing is ever travelling down that
+    lane when the chute fires.
+
+    `lanes` runs left to right: `(score, x_centre, hole_y, offset)`; a
+    non-zero offset is the sideways nudge that hole's chute has to give.
+    """
+    ordered = _hole_order(holes)
+    clear = d.hole_r + fin_t / 2 + 0.5          # a fin must miss a hole by this
+    min_w = d.ball + 1.0 + fin_t                # and a ball must get down a lane
+    zones = [(x - clear, x + clear) for _s, x, _y in ordered]
+
+    # Start from the obvious thing — a boundary halfway between each pair —
+    # and only move the ones that would land under a hole.
+    centres = _lane_centres(d, ordered)
+    bounds = [-d.xi] + [(a + b) / 2 for a, b in zip(centres, centres[1:])] + [d.xi]
+    for i in range(1, len(bounds) - 1):
+        if not _blocked(bounds[i], zones):
+            continue
+        for step in (k * 0.1 for k in range(1, int(4 * d.ball / 0.1))):
+            for spot in (bounds[i] - step, bounds[i] + step):
+                if _blocked(spot, zones):
+                    continue
+                trial = bounds[:i] + [round(spot, 2)] + bounds[i + 1:]
+                if all(b - a >= min_w for a, b in zip(trial, trial[1:])):
+                    bounds = trial
+                    break
+            else:
+                continue
+            break
+        else:
+            raise SystemExit(
+                f"cannot place a return lane boundary near {bounds[i]:.1f} mm "
+                "without it landing under a hole. Use --return shared, or a "
+                "bigger --size.")
+
+    lanes = []
+    for i, (score, hx, hy) in enumerate(ordered):
+        lo, hi = bounds[i], bounds[i + 1]
+        if lo + clear <= hx <= hi - clear:
+            lanes.append((score, hx, hy, 0.0))              # drops straight in
+        else:
+            lanes.append((score, (lo + hi) / 2, hy, (lo + hi) / 2 - hx))
+
+    for i, (score, _x, hy, offset) in enumerate(lanes):
+        if offset == 0.0:
+            continue
+        hx = ordered[i][1]
+        j = max(k for k in range(len(bounds) - 1) if bounds[k] < hx)
+        if lanes[j][2] >= hy:
+            raise SystemExit(
+                f"the {score} would have to be chuted across the "
+                f"{lanes[j][0]} lane, which is still in use that far up the "
+                "table. Use --return shared.")
+    return bounds, lanes
+
+
+def _lane_centres(d: "Dims", ordered):
+    """Where each lane would like to sit: under its hole, or spread out when
+    several holes share a centreline."""
+    centres = []
+    for i, (_score, x, _y) in enumerate(ordered):
+        same = [k for k, h in enumerate(ordered) if abs(h[1] - x) < 1e-6]
+        if len(same) == 1:
+            centres.append(x)
+            continue
+        gap = min((abs(h[1] - x) for h in ordered if abs(h[1] - x) > 1e-6),
+                  default=6 * d.hole_r)
+        step = gap / max(1, len(same) - 1)
+        centres.append(x + (same.index(i) - (len(same) - 1) / 2) * step)
+    return centres
+
+
+def _spans(lo, hi, gaps, min_len=1.0):
+    """[lo, hi] with every (a, b) in `gaps` cut out, dropping stubs."""
+    out = [(lo, hi)]
+    for a, b in gaps:
+        nxt = []
+        for s0, s1 in out:
+            if b <= s0 or a >= s1:
+                nxt.append((s0, s1))
+                continue
+            if s0 < a:
+                nxt.append((s0, a))
+            if b < s1:
+                nxt.append((b, s1))
+        out = nxt
+    return [(a, b) for a, b in out if b - a > min_len]
+
+
+def _sorted_return(d: "Dims", spec: Spec, parts: C.PartList, holes, lay):
+    """Lane walls and landing chutes for the score-sorted ball return."""
+    pr = spec.printer
+    fin_t = max(2.0, 5 * pr.nozzle)
+    bounds, lanes = return_lanes(d, holes, fin_t)
+    y_lo, y_hi = d.y_lip1 + 0.3, d.y_bw0 - 0.3
+    run = 2.2 * d.ball
+    rise = max(2.0, 0.35 * d.ball)
+
+    # The chutes go in first: where one crosses a lane boundary, that fin has
+    # to stand aside and let the ball through.
+    gaps = {}
+    for i, (score, x_lane, y_hole, offset) in enumerate(lanes):
+        if offset == 0.0:
+            continue
+        side = 1.0 if offset > 0 else -1.0
+        hx = x_lane - offset
+        j = max(k for k in range(len(bounds) - 1) if bounds[k] < hx)
+        # start just inside the fin on the far side of the hole it lands in,
+        # and finish well inside the lane it is aiming for
+        u_high = (bounds[j] + fin_t / 2 + 0.5 if side > 0
+                  else bounds[j + 1] - fin_t / 2 - 0.5)
+        u_low = x_lane + side * ((bounds[i + 1] - bounds[i]) / 2 - 1.5)
+        y0, y1 = y_hole - run / 2, y_hole + run / 2
+        parts.add(f"return_chute_{i + 1}_{score}",
+                  C.cross_chute(y0, y1, u_high, u_low, d.ramp_z(y1) + 0.2, rise),
+                  role="ramp", colour=spec.hue("ramp"), walls=3, infill=20,
+                  note=f"glue to the ramp under the {score} hole at "
+                       f"x={hx:.0f}; it tips the ball sideways into lane "
+                       f"{i + 1}, the {score}")
+        for k, b in enumerate(bounds):
+            if min(u_high, u_low) < b < max(u_high, u_low):
+                gaps.setdefault(k, []).append((y0 - fin_t, y1 + fin_t))
+
+    tall = d.zp - (d.ramp_z(y_lo) + 0.3)
+    for k, xb in enumerate(bounds[1:-1], start=1):
+        piece = 0
+        for a, b in _spans(y_lo, y_hi, gaps.get(k, []), min_len=3 * d.ball):
+            edges = C.plan_cuts(a, b, pr.max_strip(tall))
+            for c0, c1 in zip(edges, edges[1:]):
+                piece += 1
+                parts.add(f"lane_fin_{k}_{piece}",
+                          C.lane_fin(xb - fin_t / 2, xb + fin_t / 2, c0, c1,
+                                     d.ramp_z, d.zp),
+                          role="ramp", colour=spec.hue("splice"), walls=3, infill=20,
+                          note="stands on the ramp, trapped against the slab above; "
+                               "glue along its top edge")
+
+    lay["return_lanes"] = [
+        dict(score=score, x0=round(bounds[i], 2), x1=round(bounds[i + 1], 2),
+             centre=round(x, 2), chute=offset != 0.0)
+        for i, (score, x, _y, offset) in enumerate(lanes)]
+    return bounds, lanes
 
 
 def _add_strip(parts, name, profile, lo, hi, plane, max_len, note="", **kw):
@@ -398,6 +613,9 @@ def design(spec: Spec) -> Design:
     _add_strip(parts, "rail_front", frt, -d.x_face, d.x_face, "yz", pr.max_strip(d.rail_h),
                pose=("x", 90), note="fits between the side rails", **end_rail)
 
+    if spec.sorted_return:
+        _sorted_return(d, spec, parts, holes, lay)
+
     # --------------------------------------------------- time-bar gate
     bars = C.drop_bar(d.g_w, d.g_bot, d.zt + 2, d.g_tab, d.g_top + 8,
                       max(5.0, 0.5 * d.ball),
@@ -422,6 +640,9 @@ def design(spec: Spec) -> Design:
             parts.add(nm, peg.translate(*at, seat), role="play", qty=qty,
                       colour=PALETTE[key], walls=2, infill=8,
                       note="print upright, no supports; keep them light so they topple")
+
+    # -------------------------------------------------------- scoreboard
+    _scoreboard(d, spec, parts)
 
     # --------------------------------------------------------- cue parts
     park = (0.0, d.y_lip0 - 60.0, 0.0)
@@ -456,6 +677,58 @@ def design(spec: Spec) -> Design:
               walls=3, infill=25, note="tap in between clamp jaw and desk underside")
 
     return Design(spec=spec, dims=d, holes=holes, layout=lay, parts=parts, cuts=cuts)
+
+
+def scoreboard_rows(d: Dims):
+    """Y centre of each slider row, top first: hundreds, tens, units."""
+    return [((d.sb_rows - 1) / 2 - i) * d.sb_row_pitch for i in range(d.sb_rows)]
+
+
+def scoreboard_bays(d: Dims):
+    """X centre of each of the ten positions, 0 on the left."""
+    return [-d.sb_run / 2 + i * d.sb_pitch for i in range(d.sb_steps)]
+
+
+def _scoreboard(d: Dims, spec: Spec, parts: C.PartList):
+    """A slider scoreboard: three rows of 0-9 for hundreds, tens and units.
+
+    Three flat plates glued into a sandwich with the markers already inside,
+    so a marker cannot fall out. The middle plate is the channel a marker's
+    foot runs in; the top plate's slot is scalloped, so each of the ten
+    positions is unmistakable. Every piece is a plate with holes or a turned
+    peg, which is all the geometry engine can do — there is no snap fit
+    anywhere, because nothing printed flat like this would spring.
+    """
+    rows = scoreboard_rows(d)
+    qty = 1 if spec.variant == "simple" else 2
+    board = dict(role="play", colour=spec.hue("frame"), walls=3, infill=30, qty=qty)
+
+    z0 = 0.0
+    parts.add("score_back", C.flat_plate(d.sb_w, d.sb_h, z0, z0 + d.sb_back_t),
+              note="the backing plate. Print a second set for your opponent",
+              **board)
+
+    z1 = z0 + d.sb_back_t
+    channels = [C.stadium_slot(0.0, y, d.sb_run + 2 * d.sb_track_r, d.sb_track_r)
+                for y in rows]
+    parts.add("score_track", C.flat_plate(d.sb_w, d.sb_h, z1, z1 + d.sb_track_t, channels),
+              note="the middle plate: each slot is the channel a marker's foot runs in",
+              **board)
+
+    z2 = z1 + d.sb_track_t
+    bays = [C.scalloped_slot(0.0, y, d.sb_steps, d.sb_pitch, d.sb_bay_r, d.sb_neck_r)
+            for y in rows]
+    parts.add("score_face", C.flat_plate(d.sb_w, d.sb_h, z2, z2 + d.sb_face_t, bays),
+              note="the top plate; the ten bays in a row are its digits. Glue the "
+                   "paper scale from the template PDF alongside the rows",
+              **board)
+
+    marker = C.tee_marker(d.sb_shaft_r, d.sb_foot_r, d.sb_knob_r,
+                          d.sb_foot_t, d.sb_face_t, d.sb_knob_h)
+    parts.add("score_marker", marker.translate(0, 0, z1), role="play",
+              qty=d.sb_rows * qty, colour=spec.hue("gate"), walls=3, infill=40,
+              note="one per row. Drop them into the channels before gluing the top "
+                   "plate on; sand the shaft if one is stiff")
 
 
 # ------------------------------------------------------------- test coupons

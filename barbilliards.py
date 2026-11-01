@@ -47,6 +47,11 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--felt", type=float, default=1.0, help="felt thickness, mm (0 = none)")
     ap.add_argument("--desk", type=float, default=25.0, help="desk top thickness, mm")
     ap.add_argument("--colour", default="#8a5a2b", help="the one filament colour, for --variant simple")
+    ap.add_argument("--return", dest="ball_return", default="shared",
+                    choices=("shared", "sorted"),
+                    help="shared = one trough, as a real table does (default); "
+                         "sorted = a lane per hole, so a returned ball shows what "
+                         "it scored")
     ap.add_argument("--bed", type=float, default=None,
                     help="override the printer's bed with a square one, mm")
     ap.add_argument("--out", default="stl", help="output directory (default: stl)")
@@ -67,7 +72,8 @@ def spec_from(args) -> T.Spec:
                   ball=args.ball or P.size(args.size).ball,
                   cord=args.cord or P.size(args.size).cord,
                   felt=args.felt, desk=args.desk,
-                  cues=1 if args.variant == "simple" else 2, colour=args.colour)
+                  cues=1 if args.variant == "simple" else 2, colour=args.colour,
+                  sorted_return=args.ball_return == "sorted")
 
 
 def build(args) -> T.Design:

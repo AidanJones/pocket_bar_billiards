@@ -1,0 +1,89 @@
+{
+ "units": "metres",
+ "up": "+Y",
+ "player_at": "+Z",
+ "ball_diameter": 0.0476,
+ "ball_radius": 0.0238,
+ "playing_width": 0.8,
+ "playing_length": 1.42,
+ "surface_y": 0.18779001451697633,
+ "cushion_y": 0.21801601451697633,
+ "hole_radius": 0.02856,
+ "holes": [
+  {
+   "score": 30,
+   "x": -0.3,
+   "z": -1.33
+  },
+  {
+   "score": 20,
+   "x": -0.15,
+   "z": -1.33
+  },
+  {
+   "score": 10,
+   "x": 0.0,
+   "z": -1.33
+  },
+  {
+   "score": 20,
+   "x": 0.15,
+   "z": -1.33
+  },
+  {
+   "score": 30,
+   "x": 0.3,
+   "z": -1.33
+  },
+  {
+   "score": 100,
+   "x": 0.0,
+   "z": -1.09
+  },
+  {
+   "score": 50,
+   "x": -0.25,
+   "z": -0.9
+  },
+  {
+   "score": 50,
+   "x": 0.25,
+   "z": -0.9
+  },
+  {
+   "score": 200,
+   "x": 0.0,
+   "z": -0.72
+  }
+ ],
+ "d_spot": {
+  "x": 0.0,
+  "z": -0.3
+ },
+ "red_spot": {
+  "x": 0.0,
+  "z": -0.529
+ },
+ "d_radius": 0.06,
+ "baulk_z": -0.3,
+ "skittles": [
+  {
+   "colour": "black",
+   "x": 0.0,
+   "z": -0.6729400000000001
+  },
+  {
+   "colour": "white",
+   "x": -0.178,
+   "z": -1.09
+  },
+  {
+   "colour": "white",
+   "x": 0.178,
+   "z": -1.09
+  }
+ ],
+ "skittle_cap_radius": 0.034,
+ "return_lanes": [],
+ "scale_vs_real": 1.0
+}

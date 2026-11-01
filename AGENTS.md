@@ -41,10 +41,19 @@ faithful *approximation* of a standard English table, not a copy of one.
 | `barbilliards.py` | CLI: build, validate, export STLs + `parts.csv` + `print_plan.md` + `layout.json`; plate packing; `--list`, `--fit`. |
 | `check.py` | Design-rule checks. Must pass, including `--all`. |
 | `render.py` | Software-rasterised previews, the layout plan, and the 1:1 A4 felt template PDF. |
+| `gltf.py` | The same model as a `.glb` for the game, plus the JSON it needs. Life size by default. |
+| `godot/` | Godot 4.3 project: the browser/VR game and the ball-return physics test. See `godot/README.md`. |
 | `README.md` | Build guide for humans (BOM, print settings, assembly, rules). |
 | `stl/`, `stl_coupon/`, `previews/` | Generated. Never hand-edit. |
 
-Dependencies: Python 3.10+, `numpy`, `matplotlib` (render only).
+Dependencies: Python 3.10+, `numpy`, `matplotlib` (render only). The game
+needs Docker (Godot runs in a container; there is no native install and no
+Blender step — see `godot/README.md` for why).
+
+**`table.py` is the one model.** `barbilliards.py` slices it into printable
+pieces and `gltf.py` writes the assembled thing for the game. Never model
+anything a second time: if the game needs a shape, it comes from
+`components.py` like everything else.
 **Do not add dependencies** — no trimesh, manifold3d, OpenSCAD, CadQuery —
 unless the owner asks. The environment may be offline.
 
@@ -87,6 +96,15 @@ owner prints first.
 
 **After every change: run all three, then *look at* `previews/*.png`.** A
 passing check does not prove the geometry looks right.
+
+If you touched anything under the bed — the ramp, the beams, the gate, the
+return lanes — also run the simulation, which is the only thing that tests
+behaviour rather than shape:
+
+```bash
+python gltf.py                              # refresh godot/assets/
+python godot/tools/physics_test.py --return sorted
+```
 
 ---
 
@@ -261,11 +279,12 @@ Also keep: all sizes driven by `Spec`/`Dims`, splitting automatic, and
 - The scoreboard markers are a friction fit, not a detent: nothing printed
   flat like that would spring. A sprung pawl would need a part with a thin
   cantilever, which `prism` can draw but which wants testing.
-- `--return sorted` is built but has never been printed. The lane geometry
-  is checked, but whether a dropped ball actually ends up in the right lane
-  is a physics question, not a geometry one — it wants testing in a
-  simulation or on a plate before anyone trusts it. Real tables do not do
-  this: they return every ball to one trough and the players keep score.
+- `--return sorted` is built but has never been printed. Its geometry is
+  checked and `godot/tools/physics_test.py` simulates it, but a simulation
+  is not a plate. Real tables do not do this: they return every ball to one
+  trough and the players keep score.
+- The game has no rules engine yet — it scores pots and that is all. No
+  break tracking, no skittle penalties, no timer, no second player.
 - The sorted return costs 20 extra pieces and a plate, which is why it is
   not the default.
 - No automatic timer (idea: ESP32 + micro servo dropping the gate after

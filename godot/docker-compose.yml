@@ -1,0 +1,50 @@
+services:
+  # Headless: the physics test and anything else that just needs the engine.
+  #   docker compose run --rm godot --headless --quit-after 2000 -- --smoke
+  godot:
+    build:
+      context: .
+      target: base
+    image: barbilliards-godot:4.3
+    volumes:
+      - .:/project
+    working_dir: /project
+
+  # Watch it, and play it, in a browser at http://localhost:6080/vnc.html
+  #   docker compose --profile vnc up godot-vnc
+  godot-vnc:
+    profiles: ["vnc"]
+    build:
+      context: .
+      target: vnc
+    image: barbilliards-godot:4.3-vnc
+    volumes:
+      - .:/project
+    working_dir: /project
+    ports:
+      - "127.0.0.1:6080:6080"
+      - "127.0.0.1:5900:5900"
+
+  # Only built when asked for: adds a ~1 GB export-templates layer.
+  #   docker compose --profile web build godot-web
+  godot-web:
+    profiles: ["web"]
+    build:
+      context: .
+      target: web
+    image: barbilliards-godot:4.3-web
+    volumes:
+      - .:/project
+    working_dir: /project
+
+  # Serves the exported build for manual play.
+  #   docker compose --profile web up web-static  ->  http://localhost:8070
+  web-static:
+    profiles: ["web"]
+    image: python:3.12-slim
+    volumes:
+      - ../web_export:/web_export:ro
+    working_dir: /web_export
+    command: ["python3", "-m", "http.server", "8070"]
+    ports:
+      - "127.0.0.1:8070:8070"

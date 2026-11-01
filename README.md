@@ -272,7 +272,26 @@ makers (Sams, Jelkes, Burroughs & Watts…) and aren't published precisely, so
 the ones here are a faithful *approximation* of a standard English table
 rather than a copy of one.
 
-## 9. Ideas
+## 9. Play it on screen
+
+The same model drives a Godot game — in a browser now, in VR when you plug a
+headset in:
+
+```bash
+python gltf.py                              # table.glb for the game
+python godot/tools/web_export.py --serve    # http://localhost:8070
+```
+
+It is also how the ball return gets tested without printing anything:
+
+```bash
+python godot/tools/physics_test.py --return sorted
+```
+
+drops a ball through all nine holes and tells you which lane each one ended
+up in. Needs Docker; `godot/README.md` has the detail.
+
+## 10. Ideas
 
 - Replace the manual gate with a micro servo and an ESP32 that drops it
   after 15 minutes. A coin slot is optional.

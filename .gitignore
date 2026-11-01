@@ -5,3 +5,8 @@ __pycache__/
 
 # the original download; the generator replaces it
 desk-bar-billiards.zip
+
+# godot / game build output
+web_export/
+godot/.godot/
+godot/assets/*.import

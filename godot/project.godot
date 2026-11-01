@@ -1,0 +1,33 @@
+; Desk Bar Billiards — Godot 4.3
+;
+; The scene is built in code (scripts/game.gd) from assets/table.glb, which
+; `python gltf.py` writes from the same model the STLs come from. There is
+; no hand-made level to keep in step.
+
+config_version=5
+
+[application]
+config/name="Desk Bar Billiards"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.3", "Forward Plus")
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+
+[physics]
+; A 48 mm ball is small for the default solver settings, so step it twice as
+; often as usual and sweep fast bodies (see continuous_cd in game.gd).
+common/physics_ticks_per_second=120
+3d/default_gravity=9.8
+
+[rendering]
+renderer/rendering_method="forward_plus"
+; Web and mobile need the compatibility renderer.
+renderer/rendering_method.mobile="gl_compatibility"
+anti_aliasing/quality/msaa_3d=2
+
+[xr]
+openxr/enabled=true
+shaders/enabled=true

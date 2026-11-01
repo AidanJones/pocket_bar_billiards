@@ -5,13 +5,19 @@ extends Node3D
 ## by the mouse, the VR trigger and the autoplay test.
 ##
 ## While aiming, a sphere is swept along the line of the shot to find the
-## first thing the ball would touch, and a ghost ball is drawn there. Right
-## drag (or the arrow keys) slides the ball about inside the D.
+## first thing the ball would touch, and a ghost ball is drawn there. From
+## the contact normal the guide then draws what a pool player expects: an
+## object ball leaves along the line of centres and the played ball glances
+## off along the tangent (the 90 degree rule, true for a ball without spin);
+## off a cushion it shows the rebound. Right drag (or the arrow keys) slides
+## the ball about inside the D.
 
 const MAX_SPEED := 3.4            ## metres/second at full power
 const MAX_DRAG := 0.40            ## metres of drag for full power
 const GUIDE_REACH := 1.8          ## metres the aim guide looks ahead
 const NUDGE := 0.004              ## metres per arrow-key press
+const AFTER := 0.35               ## metres of guide drawn after the contact
+const RIBBON := 0.004             ## guide line width, metres
 
 var game: Node3D
 var aiming := false
@@ -31,7 +37,10 @@ func setup(owner_game: Node3D) -> void:
 
 	_line = MeshInstance3D.new()
 	_line.mesh = _mesh
-	_line.material_override = _flat(Color(1, 1, 1, 0.75))
+	var ink := _flat(Color(1, 1, 1, 0.8))
+	ink.vertex_color_use_as_albedo = true
+	ink.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_line.material_override = ink
 	add_child(_line)
 
 	# A cue roughly a real one's proportions, tip at the -Y end of the mesh.
@@ -165,13 +174,35 @@ func _process(_delta: float) -> void:
 	query.transform = Transform3D(Basis(), ball + lift)
 	query.motion = dir * GUIDE_REACH
 	query.exclude = [game.cue_ball.get_rid()]
-	var hit: PackedFloat32Array = get_world_3d().direct_space_state.cast_motion(query)
+	var space := get_world_3d().direct_space_state
+	var hit: PackedFloat32Array = space.cast_motion(query)
 	var reach := GUIDE_REACH * (hit[0] if hit.size() > 0 else 1.0)
 	var ghost := ball + dir * reach
 	_ghost.global_position = ghost
-	_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
-	_mesh.surface_add_vertex(ball)
-	_mesh.surface_add_vertex(ghost)
+	var bed: float = game.bed_height + 0.0015
+	_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	_ribbon(ball, ghost, bed, Color(1, 1, 1, 0.8))
+	if hit.size() > 0 and hit[0] < 1.0:
+		# What it touches, and which way it is pushed: the rest info at the
+		# first overlapping position of the sweep.
+		query.transform = Transform3D(Basis(), ball + lift + dir * GUIDE_REACH * hit[1])
+		query.motion = Vector3.ZERO
+		var rest := space.get_rest_info(query)
+		if not rest.is_empty():
+			var n: Vector3 = rest["normal"]
+			n.y = 0.0
+			n = n.normalized()
+			var other := instance_from_id(rest["collider_id"])
+			if other is RigidBody3D and other in game.balls:
+				var push := -n                          # line of centres
+				var glance := dir - push * dir.dot(push)  # what is left
+				var target: Vector3 = (other as Node3D).global_position
+				_ribbon(target, target + push * AFTER * dir.dot(push), bed,
+					Color(1.0, 0.8, 0.3, 0.9))
+				if glance.length() > 0.02:
+					_ribbon(ghost, ghost + glance * AFTER, bed, Color(1, 1, 1, 0.45))
+			elif not (other is RigidBody3D):                 # a cushion
+				_ribbon(ghost, ghost + dir.bounce(n) * AFTER, bed, Color(1, 1, 1, 0.45))
 	_mesh.surface_end()
 
 	# The cue lies behind the ball along the line of the shot, drawn back with
@@ -185,6 +216,20 @@ func _process(_delta: float) -> void:
 	var x := y.cross(Vector3.UP).normalized()
 	var z := x.cross(y)
 	_stick.global_transform = Transform3D(Basis(x, y, z), centre)
+
+
+## A flat strip lying on the bed, which reads at any resolution where a
+## GL line is one pixel wide.
+func _ribbon(a: Vector3, b: Vector3, y: float, colour: Color) -> void:
+	a.y = y
+	b.y = y
+	var along := b - a
+	if along.length() < 1e-4:
+		return
+	var side := along.cross(Vector3.UP).normalized() * RIBBON * 0.5
+	for v in [a - side, a + side, b + side, a - side, b + side, b - side]:
+		_mesh.surface_set_color(colour)
+		_mesh.surface_add_vertex(v)
 
 
 func _flat(colour: Color) -> StandardMaterial3D:

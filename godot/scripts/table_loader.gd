@@ -93,8 +93,11 @@ static func parts_named(root: Node, prefix: String) -> Array:
 ## so it follows the profile in components.mushroom_peg: the mesh is a lathe,
 ## so its vertices sit on rings, and the rings say where the foot, the stem
 ## and the cap are. A ball has to be able to roll under the cap rim (design
-## rule 7), so the cap is its own convex hull and the stem a slim cylinder —
-## one hull round the whole thing would fill in the waist.
+## rule 7), so foot, stem and cap are three convex hulls — one hull round
+## the whole thing would fill in the waist. Each hull is rebuilt from the
+## rings at 12 sides: Godot Physics' cylinder is jittery enough to tip a
+## skittle at rest, and a hull with the lathe's hundreds of faces makes the
+## convex-on-trimesh contact unstable enough to launch it.
 static func make_skittle(node: MeshInstance3D, mass: float) -> RigidBody3D:
 	var xf := node.global_transform
 	var box: AABB = xf * node.mesh.get_aabb()
@@ -103,10 +106,8 @@ static func make_skittle(node: MeshInstance3D, mass: float) -> RigidBody3D:
 
 	# Radius of each ring, keyed by height above the foot.
 	var rings := {}
-	var points: Array[Vector3] = []
 	for v in node.mesh.get_faces():
 		var p: Vector3 = xf * v - base
-		points.append(p)
 		var key := snappedf(p.y, height * 1e-4)
 		rings[key] = maxf(rings.get(key, 0.0), Vector2(p.x, p.z).length())
 	var cap_r := 0.0
@@ -139,19 +140,12 @@ static func make_skittle(node: MeshInstance3D, mass: float) -> RigidBody3D:
 	body.center_of_mass = Vector3(0, height * 0.55, 0)
 	var mat := PhysicsMaterial.new()
 	mat.friction = 0.5
-	mat.bounce = 0.1
+	mat.bounce = 0.0
 	body.physics_material_override = mat
-	_add_cylinder(body, foot_r, 0.0, foot_h)
-	_add_cylinder(body, stem_r, foot_h, cone_y)
-	var cap := ConvexPolygonShape3D.new()
-	var cap_points := PackedVector3Array()
-	for p in points:
-		if p.y >= cone_y - height * 1e-3:
-			cap_points.append(p)
-	cap.points = cap_points
-	var cap_node := CollisionShape3D.new()
-	cap_node.shape = cap
-	body.add_child(cap_node)
+	var slack := height * 1e-3
+	_add_hull(body, rings, -slack, foot_h + slack)
+	_add_hull(body, rings, foot_h - slack, cone_y + slack)
+	_add_hull(body, rings, cone_y - slack, height + slack)
 
 	var view := MeshInstance3D.new()
 	view.mesh = node.mesh
@@ -163,15 +157,26 @@ static func make_skittle(node: MeshInstance3D, mass: float) -> RigidBody3D:
 	return body
 
 
-static func _add_cylinder(body: Node, radius: float, y0: float, y1: float) -> void:
-	if y1 - y0 <= 1e-5 or radius <= 1e-5:
+## A 12-sided hull through the profile's rings between two heights.
+static func _add_hull(body: Node, rings: Dictionary, y0: float, y1: float) -> void:
+	const SIDES := 12
+	var band := PackedVector3Array()
+	for y in rings:
+		if y < y0 or y > y1:
+			continue
+		var r: float = rings[y]
+		if r < 1e-5:
+			band.append(Vector3(0, y, 0))
+			continue
+		for i in range(SIDES):
+			var a := TAU * float(i) / SIDES
+			band.append(Vector3(cos(a) * r, y, sin(a) * r))
+	if band.size() < 4:
 		return
-	var shape := CylinderShape3D.new()
-	shape.radius = radius
-	shape.height = y1 - y0
+	var shape := ConvexPolygonShape3D.new()
+	shape.points = band
 	var holder := CollisionShape3D.new()
 	holder.shape = shape
-	holder.position = Vector3(0, (y0 + y1) * 0.5, 0)
 	body.add_child(holder)
 
 

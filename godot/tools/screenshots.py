@@ -34,13 +34,18 @@ def main() -> int:
                HOST_GID=str(os.getgid()) if hasattr(os, "getgid") else "1000")
     failed = 0
     for name, args in SHOTS.items():
-        game = ["godot", "--rendering-driver", "opengl3", "--resolution", "1280x720",
+        game = ["godot", "--display-driver", "x11", "--rendering-driver", "opengl3", "--resolution", "1280x720",
                 "--", *args, "--screenshot", f"/project/screenshots/{name}.png"]
-        inner = 'xvfb-run -a -s "-screen 0 1280x720x24" ' + shlex.join(game)
+        # Start Xvfb by hand, as docker/vnc_entrypoint.sh does: xvfb-run's
+        # ready handshake sometimes never arrives in a container.
+        inner = ("Xvfb :99 -screen 0 1280x720x24 -nolisten tcp & "
+                 "for i in $(seq 50); do [ -S /tmp/.X11-unix/X99 ] && break; sleep 0.1; done; "
+                 "DISPLAY=:99 timeout 240 " + shlex.join(game))
         cmd = ["docker", "compose", "run", "--rm", "--entrypoint", "bash", "godot", "-c", inner]
         print("$", name, flush=True)
-        result = subprocess.run(cmd, cwd=GODOT, env=env, capture_output=True, text=True)
-        if f"[screenshot]" not in result.stdout:
+        result = subprocess.run(cmd, cwd=GODOT, env=env, capture_output=True, text=True,
+                                timeout=300)
+        if "[screenshot]" not in result.stdout:
             print(result.stdout[-2000:], result.stderr[-2000:], sep="\n")
             failed += 1
         else:

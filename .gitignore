@@ -10,3 +10,6 @@ desk-bar-billiards.zip
 web_export/
 godot/.godot/
 godot/assets/*.import
+# ...except this one: the game reads the raw .glb at run time, so it must be
+# exported as-is ("keep") rather than imported into a scene and left behind.
+!godot/assets/table.glb.import

@@ -115,9 +115,15 @@ func flash(text: String, seconds := 2.5) -> void:
 	_flash.modulate.a = 1.0
 
 
+## Green for a touch, through amber, to red for a full-blooded shot.
 func set_power(power: float) -> void:
 	_power.visible = power >= 0.0
 	_power.value = maxf(power, 0.0)
+	var fill: StyleBoxFlat = _power.get_theme_stylebox("fill")
+	if power <= 0.5:
+		fill.bg_color = Color(0.35, 0.8, 0.35).lerp(ACCENT, power * 2.0)
+	else:
+		fill.bg_color = ACCENT.lerp(Color(0.9, 0.25, 0.2), (power - 0.5) * 2.0)
 
 
 func show_over(rules: RefCounted) -> void:

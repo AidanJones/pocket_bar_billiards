@@ -27,7 +27,7 @@ const HudScript := preload("res://scripts/hud.gd")
 @export var bed_height := 0.75    ## metres from the floor to the playing bed
 @export var ball_mass := 0.21     ## kg, about a real bar billiards ball
 @export var ball_count := 7       ## white balls; the red is extra
-@export var skittle_mass := 0.06  ## kg; light, so a glancing ball topples it
+@export var skittle_mass := 0.12  ## kg; light enough to topple, heavy enough not to fly
 
 ## On the felt a ball needs rolling resistance, which the solver does not
 ## model, or it runs for a minute. Under the bed it must not have any: the
@@ -124,14 +124,14 @@ func _arg(flag: String, fallback: String) -> String:
 func _build_world() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-60, -30, 0)
-	sun.light_energy = 1.0
+	sun.light_energy = 0.55
 	sun.shadow_enabled = true
 	add_child(sun)
 	# A pub is lit from above: a lamp over the table keeps the far end lit.
 	var lamp := OmniLight3D.new()
 	lamp.position = Vector3(0, bed_height + 0.9, -float(layout["playing_length"]) * 0.5)
 	lamp.omni_range = 3.0
-	lamp.light_energy = 1.4
+	lamp.light_energy = 0.7
 	lamp.light_color = Color(1.0, 0.92, 0.78)
 	add_child(lamp)
 
@@ -141,7 +141,7 @@ func _build_world() -> void:
 	env.background_color = Color(0.12, 0.10, 0.09)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.85, 0.8, 0.72)
-	env.ambient_light_energy = 0.3
+	env.ambient_light_energy = 0.2
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	sky.environment = env
 	add_child(sky)
@@ -805,7 +805,10 @@ func _screenshot(path: String) -> void:
 			await get_tree().process_frame
 		var cue: Node = get_node("Cue")
 		cue.aim_from = cue_ball.global_position
-		cue.aim_to = cue_ball.global_position + Vector3(0.06, 0, 0.24)
+		# Line up on the red (or straight up the table), slightly off full.
+		var target := red_ball.global_position if _on_felt[red_ball] else cue_ball.global_position + Vector3.FORWARD
+		var line := (target - cue_ball.global_position).normalized().rotated(Vector3.UP, 0.05)
+		cue.aim_to = cue_ball.global_position - line * 0.24
 		cue.aiming = true
 		for i in range(10):
 			await get_tree().process_frame

@@ -11,6 +11,7 @@ default image so the headless physics test stays a quick ~250 MB pull.
 from __future__ import annotations
 
 import argparse
+import os
 import pathlib
 import subprocess
 import sys
@@ -23,6 +24,12 @@ OUT = REPO / "web_export"
 def run(cmd, **kw) -> int:
     print("$", " ".join(str(c) for c in cmd), flush=True)
     return subprocess.call(cmd, **kw)
+
+
+# Files the container writes (web_export/, .godot/) belong to you, not root.
+if hasattr(os, "getuid"):
+    os.environ.setdefault("HOST_UID", str(os.getuid()))
+    os.environ.setdefault("HOST_GID", str(os.getgid()))
 
 
 def main(argv=None) -> int:
@@ -43,11 +50,13 @@ def main(argv=None) -> int:
     OUT.mkdir(exist_ok=True)
     if run(["docker", "compose", "--profile", "web", "build", "godot-web"], cwd=GODOT):
         return 1
-    # Import once so the engine knows about the project, then export.
+    # Import once so the engine knows about the project, then export. The
+    # compose file mounts ../web_export at /web_export, where the preset's
+    # export_path (relative to /project) lands.
     run(["docker", "compose", "--profile", "web", "run", "--rm", "godot-web",
          "--headless", "--import"], cwd=GODOT)
     code = run(["docker", "compose", "--profile", "web", "run", "--rm", "godot-web",
-                "--headless", "--export-release", "Web", "/project/../web_export/index.html"],
+                "--headless", "--export-release", "Web", "/web_export/index.html"],
                cwd=GODOT)
     if code:
         return code

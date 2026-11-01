@@ -261,7 +261,7 @@ def export(design: T.Design, out: str) -> list[dict]:
         posed(part).write_stl(os.path.join(out, f"{part.name}.stl"))
 
     with open(os.path.join(out, "parts.csv"), "w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0]))
+        w = csv.DictWriter(fh, fieldnames=list(rows[0]), lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
     with open(os.path.join(out, "layout.json"), "w", encoding="utf-8") as fh:

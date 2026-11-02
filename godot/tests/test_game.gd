@@ -31,6 +31,7 @@ func _all() -> void:
 	if "--calibrate" in OS.get_cmdline_user_args():
 		await calibrate()
 		return
+	await test_start_hands_out_a_white()
 	await test_skittles_stand()
 	await test_runs_straight()
 	await test_pot_white()
@@ -152,6 +153,22 @@ func lined_up(score: int, side := 1.0, red := false) -> Array:
 
 ## Left alone, skittles stay up: a skittle that falls by itself would be a
 ## foul nobody committed.
+func test_start_hands_out_a_white() -> void:
+	await setup("the game starts with one white in the D, the red on its spot", [false, false], 0, true)
+	await frames(30)
+	var on := 0
+	for b in game.balls:
+		if game.on_felt(b):
+			on += 1
+	eq(on, 2, "two balls on the table: the red and the one in hand")
+	expect(game.cue_ball != null and game.cue_ball != game.red_ball, "a white in hand")
+	var d: Dictionary = game.layout["d_spot"]
+	var at := Vector2(game.cue_ball.global_position.x, game.cue_ball.global_position.z)
+	expect(at.distance_to(Vector2(d["x"], d["z"])) <= float(game.layout["d_radius"]) + 0.001,
+		"in the D (at %s)" % at)
+	eq(game.cue_ball.freeze, true, "and held there")
+
+
 func test_skittles_stand() -> void:
 	await setup("skittles stand still when nothing touches them", [false])
 	for i in range(4):

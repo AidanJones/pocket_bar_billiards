@@ -157,7 +157,7 @@ players rotating, choosing the red from the tray, the clock dropping the
 bar, the last-ball rule, the
 computer taking its turn and potting easy balls — plus that skittles stand
 still when nothing touches them, that a struck ball runs straight, and that
-the computer's pace model still matches the felt: 70 checks.
+the computer's pace model still matches the felt: 74 checks.
 
 ### The physics test
 

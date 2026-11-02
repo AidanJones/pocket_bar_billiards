@@ -530,7 +530,14 @@ func start_game(seats: Array, minutes: float, score_limit := 0) -> void:
 	rules.start(seats, score_limit)
 	time_left = minutes * 60.0 if minutes > 0.0 else INF
 	set_gate(false)
+	# Let the physics take the re-rack before a ball is moved again: a body
+	# moved twice in one frame can be put back where the first move left it
+	# (the browser build did, leaving the first ball in the tray). The game
+	# stays idle meanwhile, or the shot cycle would hand out a ball too.
+	state = State.MENU
 	rerack()
+	await get_tree().physics_frame
+	await get_tree().physics_frame
 	state = State.WAITING
 	_next_ball()
 
@@ -761,6 +768,11 @@ func _tune(b: RigidBody3D, delta: float) -> void:
 	# Anything that leaves the world, or sticks in the return, goes home.
 	if b.freeze and not _on_felt[b]:
 		return                      # not racked yet
+	if b == cue_ball and state == State.AIM and _off_table(b.global_position):
+		# The ball in hand belongs on the table, in the D: if anything moved
+		# it off, put it back rather than let it be played from the tray.
+		_play_from_tray(b)
+		return
 	if _on_felt[b] and _off_table(b.global_position):
 		# Jumped a cushion: a foul, and the ball goes back to the tray.
 		if state == State.ROLLING and not _shot.get("off_table", false):
@@ -934,7 +946,7 @@ func _tray_balls() -> Array:
 ## A ball that has left the felt but not yet reached the tray.
 func _returning() -> bool:
 	for b in balls:
-		if not _on_felt[b] and not _in_tray(b) and _still[b] < LOST_AFTER:
+		if not _on_felt[b] and not _in_tray(b) and not b.freeze and _still[b] < LOST_AFTER:
 			if gate_down and b.linear_velocity.length() < REST_SPEED:
 				continue            # stopped against the bar: it is not coming
 			return true

@@ -48,6 +48,7 @@ func _all() -> void:
 	await test_score_limit()
 	await test_four_players()
 	await test_rerack()
+	await test_choose_the_red()
 	await test_time_drops_bar()
 	await test_last_ball_wrong_hole()
 	await test_pace_model()
@@ -374,6 +375,25 @@ func test_rerack() -> void:
 	await frames(5)
 	eq(game.on_felt(game.red_ball), true, "red on the table")
 	eq(game._tray_balls().size(), game.balls.size() - 1, "every white in the tray")
+
+
+func test_choose_the_red() -> void:
+	await setup("the red can be chosen from the tray, and put back")
+	eq(game.red_choice(), "", "red on its spot: nothing to offer")
+	game._to_tray(game.red_ball)
+	await until(func(): return game.red_ball in game._tray_balls(), 5.0)
+	eq(game.red_choice(), "red", "red in the tray: offered")
+	game.toggle_red()
+	eq(game.cue_ball, game.red_ball, "the red is in hand")
+	eq(game.can_aim(), true, "and ready to play from the D")
+	eq(game.red_choice(), "white", "then a white is offered instead")
+	game.toggle_red()
+	await until(func(): return game.red_ball in game._tray_balls(), 5.0)
+	expect(game.cue_ball != game.red_ball and game.cue_ball != null, "back to a white")
+	game.rules.current = 1
+	game.rules.computer[1] = true
+	eq(game.red_choice(), "", "not offered on the computer's turn")
+	game.rules.computer[1] = false
 
 
 func test_time_drops_bar() -> void:

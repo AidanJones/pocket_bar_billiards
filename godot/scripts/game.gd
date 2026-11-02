@@ -120,6 +120,7 @@ func _ready() -> void:
 	add_child(hud)
 	hud.start_requested.connect(start_game)
 	hud.restart_requested.connect(new_game)
+	hud.red_requested.connect(toggle_red)
 	ai = AIScript.new()
 	ai.name = "Computer"
 	ai.game = self
@@ -632,6 +633,38 @@ func swap_ball() -> void:
 	_play_from_tray(choices[0])
 
 
+## What the red button offers the player now: "red" (it is in the tray),
+## "white" (the red is in hand and a white is waiting), or "" (neither).
+## Whether to bring the red into play is the player's call: it doubles a
+## pot, but a red left on the table doubles the next player's pot too.
+func red_choice() -> String:
+	if not can_aim() or not human_turn():
+		return ""
+	var waiting := _tray_balls()
+	if cue_ball == red_ball:
+		for b in waiting:
+			if b != red_ball:
+				return "white"
+		return ""
+	return "red" if red_ball in waiting else ""
+
+
+## Swap the ball in the D for the red, or back to a white (E, or the button).
+func toggle_red() -> void:
+	var choice := red_choice()
+	if choice == "":
+		return
+	var want: RigidBody3D = red_ball
+	if choice == "white":
+		for b in _tray_balls():
+			if b != red_ball:
+				want = b
+				break
+	_to_tray(cue_ball)
+	cue_ball = null
+	_play_from_tray(want)
+
+
 func _next_ball() -> void:
 	if rules.over:
 		_game_over()
@@ -702,7 +735,9 @@ func _physics_process(delta: float) -> void:
 		_watch_shot(delta)
 	elif state == State.AIM and _auto_shots >= 0:
 		_autoplay(delta)
-	hud.show_board(rules, time_left, _tray_balls().size(), gate_down)
+	var tray := _tray_balls()
+	hud.show_board(rules, time_left, tray.size(), gate_down, red_ball in tray)
+	hud.show_red(red_choice())
 
 
 ## Felt or return system: each wants different physics (see FELT_*).
@@ -986,6 +1021,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_TAB:
 				if human_turn():
 					swap_ball()
+			KEY_E:
+				toggle_red()
 			KEY_R:
 				hud.toggle_rules()
 			KEY_N:

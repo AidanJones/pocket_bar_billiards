@@ -5,6 +5,7 @@ extends CanvasLayer
 
 signal start_requested(seats: Array, minutes: float, score_limit: int)
 signal restart_requested
+signal red_requested
 
 const RulesScript := preload("res://scripts/rules.gd")
 const INK := Color(0.96, 0.94, 0.86)
@@ -19,6 +20,7 @@ var _board := Label.new()
 var _clock := Label.new()
 var _flash := Label.new()
 var _help := Label.new()
+var _red: Button
 var _power := ProgressBar.new()
 var _board_box: PanelContainer
 var _menu: PanelContainer
@@ -63,7 +65,7 @@ func _ready() -> void:
 	_help.offset_top = -34
 	_help.offset_left = 16
 	_help.text = ("drag back from the ball and release to shoot  ·  right-drag or "
-		+ "arrows: move in the D  ·  Tab: change ball  ·  C: camera  ·  wheel: zoom  ·  R: rules")
+		+ "arrows: move in the D  ·  Tab: change ball  ·  E: the red  ·  C: camera  ·  wheel: zoom  ·  R: rules")
 	add_child(_help)
 
 	_power.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -80,6 +82,22 @@ func _ready() -> void:
 	fill.set_corner_radius_all(4)
 	_power.add_theme_stylebox_override("fill", fill)
 	add_child(_power)
+
+	# Offered only when the red is in the tray (or in hand, to put back).
+	_red = _button("", 18, func(): red_requested.emit())
+	_red.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_red.offset_left = -110
+	_red.offset_right = 110
+	_red.offset_top = -124
+	_red.offset_bottom = -86
+	var red_face := StyleBoxFlat.new()
+	red_face.bg_color = Color(0.70, 0.13, 0.11)
+	red_face.set_corner_radius_all(6)
+	red_face.set_content_margin_all(6)
+	for look in ["normal", "hover", "pressed"]:
+		_red.add_theme_stylebox_override(look, red_face)
+	_red.visible = false
+	add_child(_red)
 
 	# Always there once the game is on: the rules, and a way out.
 	var corner := HBoxContainer.new()
@@ -110,7 +128,8 @@ func _process(delta: float) -> void:
 		_flash.modulate.a = clampf(_flash_left, 0.0, 1.0)
 
 
-func show_board(rules: RefCounted, seconds_left: float, in_tray: int, bar_down: bool) -> void:
+func show_board(rules: RefCounted, seconds_left: float, in_tray: int, bar_down: bool,
+		red_in_tray := false) -> void:
 	_board_box.visible = true
 	var lines: Array[String] = []
 	for i in range(rules.players):
@@ -120,7 +139,7 @@ func show_board(rules: RefCounted, seconds_left: float, in_tray: int, bar_down: 
 		var who: String = rules.names[i] if rules.players > 1 else "Score"
 		lines.append("%s%s   %d" % [mark, who, rules.totals[i]])
 	lines.append("Break   %d" % rules.break_score)
-	lines.append("Balls in tray   %d" % in_tray)
+	lines.append("Balls in tray   %d%s" % [in_tray, "  (red too)" if red_in_tray else ""])
 	if rules.target > 0:
 		lines.append("First to %d" % rules.target)
 	_board.text = "\n".join(lines)
@@ -133,6 +152,12 @@ func show_board(rules: RefCounted, seconds_left: float, in_tray: int, bar_down: 
 		var s := maxi(0, ceili(seconds_left))
 		_clock.text = "%d:%02d" % [s / 60, s % 60]
 		_clock.add_theme_color_override("font_color", INK)
+
+
+## "red", "white" or "" (hidden): see game.red_choice().
+func show_red(choice: String) -> void:
+	_red.visible = choice != ""
+	_red.text = "Play the red (E)" if choice == "red" else "Play a white (E)"
 
 
 func hide_menu() -> void:

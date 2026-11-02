@@ -153,10 +153,11 @@ cases, 63 checks. `tests/test_game.gd` then plays each rule out on the real
 table through the physics — a pot seen and scored, the red doubled, a miss
 returned, the red re-spotted on a cleared table, both skittles, a ball off
 the table, a ball left in baulk, every ball in play, the score limit, four
-players rotating, the clock dropping the bar, the last-ball rule, the
+players rotating, choosing the red from the tray, the clock dropping the
+bar, the last-ball rule, the
 computer taking its turn and potting easy balls — plus that skittles stand
 still when nothing touches them, that a struck ball runs straight, and that
-the computer's pace model still matches the felt: 63 checks.
+the computer's pace model still matches the felt: 70 checks.
 
 ### The physics test
 

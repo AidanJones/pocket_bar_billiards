@@ -46,7 +46,7 @@ Your turn is a break. Keep potting at least one ball every shot and you keep pla
 At the start, and whenever the table is cleared, the red is put on its spot and the first shot must hit it.
 
 [b]Balls[/b]
-Seven white and one red. Potted balls roll back to the tray and are played again. A ball left behind the baulk line goes back to the tray. If every ball is on the table, the one nearest the D is picked up and played next.
+Seven white and one red. Potted balls roll back to the tray and are played again, the red included: it is not re-spotted. Whether to bring the red back into play is up to you. It doubles your pot, but left on the table it doubles the next player's too. A ball left behind the baulk line goes back to the tray. If every ball is on the table, the one nearest the D is picked up and played next.
 
 [b]Time and the bar[/b]
 When the clock runs out the bar drops: potted balls stay under the table and the game winds down. The last ball only scores in the 100 or 200, and only off a side cushion. The game ends when no ball is left to play.
@@ -55,7 +55,7 @@ When the clock runs out the bar drops: potted balls stay under the table and the
 If one is set, the first to reach it wins at once.
 
 [b]Controls[/b]
-Drag back from the ball and let go to shoot: the further, the harder. Right-drag or the arrow keys move the ball in the D. Tab changes ball, C changes camera, the wheel zooms, R shows these rules."""
+Drag back from the ball and let go to shoot: the further, the harder. Right-drag or the arrow keys move the ball in the D. Tab changes ball, E plays the red when it is in the tray (the red button does the same), C changes camera, the wheel zooms, R shows these rules."""
 
 var players := 1
 var names: Array[String] = ["Player 1"]

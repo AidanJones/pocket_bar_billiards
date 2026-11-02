@@ -316,7 +316,8 @@ python godot/tools/web_export.py --serve    # http://localhost:8070
 harder the shot (the bar goes green → amber → red). While you aim, a ghost
 ball shows where it will make contact, and lines show where the ball it hits
 will go and where yours will glance off. Right-drag or the arrow keys move
-your ball within the D, **Tab** swaps it for another from the tray, **C**
+your ball within the D, **Tab** swaps it for another from the tray, **E**
+(or the red button, shown when the red is in the tray) plays the red, **C**
 switches to the overhead camera, the wheel zooms, **R** shows the rules and
 **N** starts a new game. Each hole's value is marked beside it.
 

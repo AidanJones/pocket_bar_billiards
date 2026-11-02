@@ -12,7 +12,7 @@ teach us the most, not by what is easiest.
 | Shared ball return | 9 of 9 balls reach the tray | Godot physics, life size |
 | Sorted ball return | 9 of 9 balls reach the right lane | Godot physics, life size |
 | Scoreboard | Geometry and fit checked | `check.py` rules 12 |
-| Game | Plays to the rules: breaks, fouls, skittles, last ball, clock, score limit, 1–4 players or the computer | `godot/tools/game_test.py`: 63 rule checks + 63 on the table; `--autoplay` soaks (40 random, 60 computer shots, no ball lost) |
+| Game | Plays to the rules: breaks, fouls, skittles, last ball, clock, score limit, 1–4 players or the computer | `godot/tools/game_test.py`: 63 rule checks + 70 on the table; `--autoplay` soaks (40 random, 60 computer shots, no ball lost) |
 | Web build | Loads, plays a shot, the computer replies, in Chromium | `godot/e2e/web_smoke.py` (headless, SwiftShader); the owner has played it once |
 | VR | **Never run** | — |
 | **Anything printed** | **No** | — |
@@ -80,7 +80,8 @@ Everything below this line is speculation until a plate comes off.
       for: turns passing on no score, a computer opponent, the rules in the
       game, tests for every rule, up to four players, a score limit, a
       reset, hole values on the felt, slightly easier pockets, and a rule
-      for a ball off the table — all done. Still for a human to judge: the
+      for a ball off the table, and an easy way to play the red once it is
+      back in the tray (E, or a button) — all done. Still for a human to judge: the
       power range, whether the pocket help is too much or too little
       (`POCKET_REACH`, `POCKET_PULL` in game.gd), and touch on a phone.
 - [ ] **Side spin, and aim-then-power.** The two ideas worth taking from
@@ -108,6 +109,9 @@ Everything below this line is speculation until a plate comes off.
 - [ ] **Teach the computer about its own ball after contact.** It fouls
       by running on into a white skittle (4 in 60 shots). Sweep the
       tangent line from the ghost ball, as the aim guide already draws it.
+- [ ] **Let the computer choose the red.** It plays whatever ball comes
+      out of the tray (whites first). It could take the red when it has a
+      good pot, and leave it in the tray otherwise.
 - [ ] **A skill setting in the menu.** `ai.skill_noise` is there; nothing
       sets it but the tests.
 - [x] **Rack the balls properly.** Red on its spot, the rest in the tray,

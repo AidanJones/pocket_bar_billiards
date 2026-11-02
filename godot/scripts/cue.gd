@@ -9,8 +9,9 @@ extends Node3D
 ## the contact normal the guide then draws what a pool player expects: an
 ## object ball leaves along the line of centres and the played ball glances
 ## off along the tangent (the 90 degree rule, true for a ball without spin);
-## off a cushion it shows the rebound. Right drag (or the arrow keys) slides
-## the ball about inside the D.
+## off a cushion it shows the rebound. With spin on the ball those lines are
+## only a starting point, so they are drawn fainter. Right drag (or the arrow
+## keys) slides the ball about inside the D.
 
 const MAX_SPEED := 3.4            ## metres/second at full power
 const MAX_DRAG := 0.40            ## metres of drag for full power
@@ -143,15 +144,16 @@ func power() -> float:
 func _strike() -> void:
 	if power() < 0.03:
 		return
-	play(_pull().normalized(), power())
+	play(_pull().normalized(), power(), game.spin)
 
 
 ## Hit the ball. Shared by the mouse, the VR controller and the tests.
-func play(direction: Vector3, strength: float) -> void:
+## `tip` is where the cue strikes the ball (see game.strike).
+func play(direction: Vector3, strength: float, tip := Vector2.ZERO) -> void:
 	direction.y = 0.0
 	if direction.length_squared() < 1e-8:
 		return
-	game.strike(direction.normalized() * MAX_SPEED * clampf(strength, 0.0, 1.0))
+	game.strike(direction.normalized() * MAX_SPEED * clampf(strength, 0.0, 1.0), tip)
 
 
 func _process(_delta: float) -> void:
@@ -166,6 +168,7 @@ func _process(_delta: float) -> void:
 	var r: float = float(game.layout["ball_radius"])
 	var ball: Vector3 = game.cue_ball.global_position
 	var dir := _pull().normalized()
+	var after := 0.45 if game.spin.length() < 0.05 else 0.18   # see the header
 
 	# Sweep a ball along the shot; stop the guide where it first touches.
 	var lift := Vector3(0, 0.003, 0)
@@ -202,9 +205,9 @@ func _process(_delta: float) -> void:
 				_ribbon(target, target + push * AFTER * dir.dot(push), bed,
 					Color(1.0, 0.8, 0.3, 0.9))
 				if glance.length() > 0.02:
-					_ribbon(ghost, ghost + glance * AFTER, bed, Color(1, 1, 1, 0.45))
+					_ribbon(ghost, ghost + glance * AFTER, bed, Color(1, 1, 1, after))
 			elif not (other is RigidBody3D):                 # a cushion
-				_ribbon(ghost, ghost + dir.bounce(n) * AFTER, bed, Color(1, 1, 1, 0.45))
+				_ribbon(ghost, ghost + dir.bounce(n) * AFTER, bed, Color(1, 1, 1, after))
 	_mesh.surface_end()
 
 	# The cue lies behind the ball along the line of the shot, drawn back with
@@ -213,7 +216,10 @@ func _process(_delta: float) -> void:
 	var tilt := deg_to_rad(6.0)
 	var axis := (-dir * cos(tilt) + Vector3.UP * sin(tilt)).normalized()
 	var length: float = (_stick.mesh as CylinderMesh).height
-	var centre := ball - dir * back + axis * (length * 0.5) + Vector3(0, r * 0.15, 0)
+	# Off centre by the tip position: half a radius at most (see TIP_SPIN).
+	var side := dir.cross(Vector3.UP).normalized()
+	var aim_at: Vector3 = (side * game.spin.x + Vector3.UP * (0.15 + game.spin.y * 0.5)) * r
+	var centre: Vector3 = ball - dir * back + axis * (length * 0.5) + aim_at
 	var y := axis
 	var x := y.cross(Vector3.UP).normalized()
 	var z := x.cross(y)

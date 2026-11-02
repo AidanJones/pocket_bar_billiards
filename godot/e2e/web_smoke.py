@@ -80,6 +80,7 @@ def inside() -> int:
             page.mouse.click(640, 30)
             page.keyboard.press("Enter")
             page.wait_for_timeout(2500)
+            page.keyboard.press("w")            # a little top spin: the pad shows it
             # The ball waits in the D, low and centred in the player's view;
             # drag back towards the player and let go.
             page.mouse.move(640, 512)

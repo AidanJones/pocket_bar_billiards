@@ -317,7 +317,9 @@ harder the shot (the bar goes green → amber → red). While you aim, a ghost
 ball shows where it will make contact, and lines show where the ball it hits
 will go and where yours will glance off. Right-drag or the arrow keys move
 your ball within the D, **Tab** swaps it for another from the tray, **E**
-(or the red button, shown when the red is in the tray) plays the red, **C**
+(or the red button, shown when the red is in the tray) plays the red,
+**W A S D** or the ball face in the corner put spin on (top follows
+through, back draws, side changes the angle off a cushion), **C**
 switches to the overhead camera, the wheel zooms, **R** shows the rules and
 **N** starts a new game. Each hole's value is marked beside it.
 

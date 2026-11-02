@@ -56,6 +56,14 @@ const SKITTLE_DOWN := 20.0        ## degrees of lean that counts as knocked over
 ## into it. This is the game's only help; the model's holes are unchanged.
 const POCKET_REACH := 0.45        ## ball radii beyond the hole's edge
 const POCKET_PULL := 2.5          ## m/s^2 towards the hole's centre
+## Spin. The player picks where the tip strikes, as a point on the ball's
+## face inside a circle of half a radius (further out a real cue miscues).
+## A tip b off centre gives the ball 5·b·v/(2r²) of spin, so the edge of the
+## circle is 1.25 × the spin of a rolling ball. The felt's friction does the
+## rest: top spin follows through, back spin draws, side changes the angle
+## off a cushion.
+const TIP_SPIN := 1.25
+const SPIN_STEP := 0.25           ## per W/A/S/D press
 ## The felt has its own collision layer, so a ball over a hole can stop
 ## touching it (see _build_felt).
 const FELT_LAYER := 2
@@ -69,6 +77,7 @@ var table: Node3D
 var balls: Array[RigidBody3D] = []
 var cue_ball: RigidBody3D
 var red_ball: RigidBody3D
+var spin := Vector2.ZERO          ## the person's next tip position; see strike()
 var skittles: Array[Dictionary] = []      ## {body, home: Transform3D, colour}
 var rules: RefCounted = RulesScript.new()
 var hud: CanvasLayer
@@ -121,6 +130,7 @@ func _ready() -> void:
 	hud.start_requested.connect(start_game)
 	hud.restart_requested.connect(new_game)
 	hud.red_requested.connect(toggle_red)
+	hud.spin_changed.connect(set_spin)
 	ai = AIScript.new()
 	ai.name = "Computer"
 	ai.game = self
@@ -590,14 +600,21 @@ func _spot_red() -> void:
 	put_on_felt(red_ball, Vector2(spot["x"], spot["z"]))
 
 
-## Play the ball in the D at this velocity. The cue calls this.
-func strike(velocity: Vector3) -> void:
+## Play the ball in the D at this velocity. The cue calls this. `tip` is
+## where the cue strikes the ball's face: x to the right, y up, in a unit
+## circle (see TIP_SPIN); the centre is a plain shot with no spin.
+func strike(velocity: Vector3, tip := Vector2.ZERO) -> void:
 	if not can_aim():
 		return
 	cue_ball.freeze = false
 	cue_ball.sleeping = false
-	cue_ball.angular_velocity = Vector3.ZERO
+	tip = tip.limit_length(1.0)
+	var r := float(layout["ball_radius"])
+	var rolling := Vector3.UP.cross(velocity) / r     # the spin of a rolling ball
+	cue_ball.angular_velocity = (rolling * tip.y
+		- Vector3.UP * velocity.length() / r * tip.x) * TIP_SPIN
 	cue_ball.linear_velocity = velocity
+	spin = Vector2.ZERO
 	var others := 0
 	for b in balls:
 		if b != cue_ball and (_on_felt[b] or _in_tray(b)):
@@ -607,6 +624,13 @@ func strike(velocity: Vector3) -> void:
 	_shot_time = 0.0
 	_rest_time = 0.0
 	state = State.ROLLING
+
+
+## Where the person's cue will strike the ball (the HUD pad, W A S D). It
+## goes back to the centre after every shot.
+func set_spin(tip: Vector2) -> void:
+	if human_turn():
+		spin = tip.limit_length(1.0)
 
 
 ## Slide the ball waiting to be played to the nearest point inside the D.
@@ -745,6 +769,7 @@ func _physics_process(delta: float) -> void:
 	var tray := _tray_balls()
 	hud.show_board(rules, time_left, tray.size(), gate_down, red_ball in tray)
 	hud.show_red(red_choice())
+	hud.show_spin(spin, human_turn())
 
 
 ## Felt or return system: each wants different physics (see FELT_*).
@@ -764,7 +789,11 @@ func _tune(b: RigidBody3D, delta: float) -> void:
 			b.apply_central_force(-v.normalized() * FELT_DRAG * b.mass)
 		elif v.length() > 0.0:
 			b.linear_velocity = Vector3(0, b.linear_velocity.y, 0)
-			b.angular_velocity = Vector3.ZERO
+			# Stopped dead with back spin left (a screw shot): keep it, and
+			# the felt pulls the ball back.
+			var w := b.angular_velocity
+			if Vector2(w.x, w.z).length() * r < FELT_DRAG:
+				b.angular_velocity = Vector3.ZERO
 	# Anything that leaves the world, or sticks in the return, goes home.
 	if b.freeze and not _on_felt[b]:
 		return                      # not racked yet
@@ -1035,6 +1064,14 @@ func _unhandled_input(event: InputEvent) -> void:
 					swap_ball()
 			KEY_E:
 				toggle_red()
+			KEY_W:
+				set_spin(spin + Vector2(0, SPIN_STEP))
+			KEY_S:
+				set_spin(spin + Vector2(0, -SPIN_STEP))
+			KEY_A:
+				set_spin(spin + Vector2(-SPIN_STEP, 0))
+			KEY_D:
+				set_spin(spin + Vector2(SPIN_STEP, 0))
 			KEY_R:
 				hud.toggle_rules()
 			KEY_N:

@@ -6,6 +6,7 @@ extends CanvasLayer
 signal start_requested(seats: Array, minutes: float, score_limit: int)
 signal restart_requested
 signal red_requested
+signal spin_changed(tip: Vector2)
 
 const RulesScript := preload("res://scripts/rules.gd")
 const INK := Color(0.96, 0.94, 0.86)
@@ -21,6 +22,8 @@ var _clock := Label.new()
 var _flash := Label.new()
 var _help := Label.new()
 var _red: Button
+var _spin: SpinPad
+var _spin_label := Label.new()
 var _power := ProgressBar.new()
 var _board_box: PanelContainer
 var _menu: PanelContainer
@@ -64,8 +67,8 @@ func _ready() -> void:
 	_help.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_help.offset_top = -34
 	_help.offset_left = 16
-	_help.text = ("drag back from the ball and release to shoot  ·  right-drag or "
-		+ "arrows: move in the D  ·  Tab: change ball  ·  E: the red  ·  C: camera  ·  wheel: zoom  ·  R: rules")
+	_help.text = ("drag back and release to shoot  ·  right-drag or arrows: move in the D  ·  "
+		+ "WASD: spin  ·  Tab: change ball  ·  E: the red  ·  C: camera  ·  wheel: zoom  ·  R: rules")
 	add_child(_help)
 
 	_power.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -98,6 +101,33 @@ func _ready() -> void:
 		_red.add_theme_stylebox_override(look, red_face)
 	_red.visible = false
 	add_child(_red)
+
+	# Where the cue tip will strike: click the ball face (right-click to
+	# centre), or W A S D.
+	_spin = SpinPad.new()
+	_spin.anchor_left = 1.0
+	_spin.anchor_right = 1.0
+	_spin.anchor_top = 1.0
+	_spin.anchor_bottom = 1.0
+	_spin.offset_left = -112
+	_spin.offset_right = -24
+	_spin.offset_top = -176
+	_spin.offset_bottom = -88
+	_spin.picked.connect(func(tip: Vector2): spin_changed.emit(tip))
+	_spin.visible = false
+	add_child(_spin)
+	_style(_spin_label, 15)
+	_spin_label.anchor_left = 1.0
+	_spin_label.anchor_right = 1.0
+	_spin_label.anchor_top = 1.0
+	_spin_label.anchor_bottom = 1.0
+	_spin_label.offset_left = -220
+	_spin_label.offset_right = -16
+	_spin_label.offset_top = -84
+	_spin_label.offset_bottom = -60
+	_spin_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_spin_label.visible = false
+	add_child(_spin_label)
 
 	# Always there once the game is on: the rules, and a way out.
 	var corner := HBoxContainer.new()
@@ -152,6 +182,32 @@ func show_board(rules: RefCounted, seconds_left: float, in_tray: int, bar_down: 
 		var s := maxi(0, ceili(seconds_left))
 		_clock.text = "%d:%02d" % [s / 60, s % 60]
 		_clock.add_theme_color_override("font_color", INK)
+
+
+## The spin pad: where the tip will strike, shown on a person's turn.
+func show_spin(tip: Vector2, showing: bool) -> void:
+	_spin.visible = showing
+	_spin_label.visible = showing
+	if _spin.tip != tip:
+		_spin.tip = tip
+		_spin.queue_redraw()
+	_spin_label.text = spin_words(tip)
+
+
+static func spin_words(tip: Vector2) -> String:
+	var parts: Array[String] = []
+	if tip.y > 0.15:
+		parts.append("top spin")
+	elif tip.y < -0.15:
+		parts.append("back spin")
+	if tip.x > 0.15:
+		parts.append("right side")
+	elif tip.x < -0.15:
+		parts.append("left side")
+	if parts.is_empty():
+		return "No spin" if tip.length() < 0.05 else "A touch of spin"
+	var text := ", ".join(parts)
+	return text[0].to_upper() + text.substr(1)
 
 
 ## "red", "white" or "" (hidden): see game.red_choice().
@@ -356,3 +412,36 @@ func _style(label: Label, size: int) -> void:
 	label.add_theme_color_override("font_color", INK)
 	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	label.add_theme_constant_override("outline_size", 4)
+
+
+## The face of the ball as the cue sees it, with a dot where the tip will
+## strike. The outer ring is the furthest a tip can go off centre.
+class SpinPad extends Control:
+	signal picked(tip: Vector2)
+	var tip := Vector2.ZERO
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		tooltip_text = "Where the cue strikes the ball. Right-click to centre."
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var rad := minf(size.x, size.y) * 0.5
+		draw_circle(c, rad, Color(0.96, 0.94, 0.86))
+		draw_arc(c, rad, 0.0, TAU, 48, Color(0, 0, 0, 0.6), 2.0, true)
+		draw_line(c - Vector2(rad, 0), c + Vector2(rad, 0), Color(0, 0, 0, 0.15), 1.0)
+		draw_line(c - Vector2(0, rad), c + Vector2(0, rad), Color(0, 0, 0, 0.15), 1.0)
+		draw_circle(c + Vector2(tip.x, -tip.y) * rad * 0.8, rad * 0.16, Color(0.75, 0.12, 0.1))
+
+	func _gui_input(event: InputEvent) -> void:
+		var press: bool = event is InputEventMouseButton and event.pressed
+		if press and event.button_index == MOUSE_BUTTON_RIGHT:
+			picked.emit(Vector2.ZERO)
+		elif (press and event.button_index == MOUSE_BUTTON_LEFT) or (
+				event is InputEventMouseMotion and event.button_mask & MOUSE_BUTTON_MASK_LEFT):
+			var rad := minf(size.x, size.y) * 0.5
+			var at: Vector2 = (event.position - size * 0.5) / (rad * 0.8)
+			picked.emit(Vector2(at.x, -at.y).limit_length(1.0))
+		else:
+			return
+		accept_event()

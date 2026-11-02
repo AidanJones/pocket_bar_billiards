@@ -52,6 +52,9 @@ func _all() -> void:
 	await test_choose_the_red()
 	await test_time_drops_bar()
 	await test_last_ball_wrong_hole()
+	await test_spin_controls()
+	await test_follow_and_draw()
+	await test_side_off_a_cushion()
 	await test_pace_model()
 	await test_computer_takes_its_turn()
 	await test_computer_pots()
@@ -438,6 +441,74 @@ func test_last_ball_wrong_hole() -> void:
 
 ## The computer judges pace from a model of the felt; if the felt physics
 ## in game.gd changes, this says the model needs refitting (--calibrate).
+## A full-ball shot from 0.2 m, three ways: where does the white end up,
+## measured up the table from where it met the object ball?
+func spin_run(tip: Vector2, speed := 1.0) -> float:
+	await setup("spin: tip at %s" % tip)
+	await clear_felt()
+	var obj := spare(Vector2(-0.36, -0.60))
+	var meet := -0.60 + 2.0 * r                  # the white's z when they touch
+	game.put_on_felt(game.cue_ball, Vector2(-0.36, -0.40))
+	await frames(3)
+	var white: RigidBody3D = game.cue_ball
+	game.strike(Vector3(0, 0, -speed), tip)
+	await until(func(): return game.state != game.State.ROLLING, 30.0)
+	var went := meet - white.global_position.z
+	print("    white ran %+.3f m past the contact; object ball at z %.3f" % [went, obj.global_position.z])
+	return went
+
+
+func test_spin_controls() -> void:
+	await setup("spin is set on your turn and used once")
+	game.set_spin(Vector2(3, 0))
+	eq(game.spin, Vector2(1, 0), "no further out than the edge of the ball")
+	game.set_spin(Vector2(0, 0.5))
+	await shoot(Vector2(0, -0.4), Vector2(1, 0), 0.4)
+	eq(game.spin, Vector2.ZERO, "back to the centre after the shot")
+	game.rules.computer[game.rules.current] = true
+	game.set_spin(Vector2(0, 1))
+	eq(game.spin, Vector2.ZERO, "the computer's turn: no one to set it")
+	game.rules.computer[game.rules.current] = false
+
+
+func test_follow_and_draw() -> void:
+	var plain := await spin_run(Vector2.ZERO)
+	var top := await spin_run(Vector2(0, 1))
+	var back := await spin_run(Vector2(0, -1), 2.0)   # back spin wears off: hit it firmly
+	expect(top > plain + 0.03, "top spin follows through (%.3f against %.3f)" % [top, plain])
+	expect(back < -0.03, "back spin draws the white back (%.3f)" % back)
+
+
+## Into the left cushion at 45 degrees; the angle it leaves at, measured
+## from the cushion. Plain, it comes off flatter than it went in (the
+## cushion takes some of the speed into it, none of the speed along it).
+## Left-hand side is running side here: the white runs along the cushion
+## more. Right-hand side checks it, but less: a plain ball already slides
+## along the cushion, so friction there is near its limit either way.
+func bank_angle(tip: Vector2) -> float:
+	await setup("side: tip at %s" % tip)
+	await clear_felt()
+	var white: RigidBody3D = game.cue_ball
+	game.put_on_felt(white, Vector2(-0.15, -0.45))
+	await frames(3)
+	game.strike(Vector3(-1, 0, -1).normalized() * 1.2, tip)
+	await until(func(): return white.linear_velocity.x > 0.05, 5.0)
+	await frames(6)
+	var v := white.linear_velocity
+	var angle := rad_to_deg(atan2(v.x, -v.z))     # 45 = a mirror bounce
+	print("    off the cushion at %.1f deg" % angle)
+	await until(func(): return game.state != game.State.ROLLING, 30.0)
+	return angle
+
+
+func test_side_off_a_cushion() -> void:
+	var plain := await bank_angle(Vector2.ZERO)
+	var running := await bank_angle(Vector2(-1, 0))
+	var check := await bank_angle(Vector2(1, 0))
+	expect(running < plain - 4.0, "running side sends it along the cushion (%.1f deg against %.1f)" % [running, plain])
+	expect(check > plain, "check side holds it off (%.1f deg against %.1f)" % [check, plain])
+
+
 func test_pace_model() -> void:
 	for row in await calibrate([0.6, 1.0]):
 		expect(absf(row[2] - row[1]) < row[1] * 0.12,

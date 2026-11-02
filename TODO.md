@@ -12,7 +12,7 @@ teach us the most, not by what is easiest.
 | Shared ball return | 9 of 9 balls reach the tray | Godot physics, life size |
 | Sorted ball return | 9 of 9 balls reach the right lane | Godot physics, life size |
 | Scoreboard | Geometry and fit checked | `check.py` rules 12 |
-| Game | Plays to the rules: breaks, fouls, skittles, last ball, clock, score limit, 1–4 players or the computer | `godot/tools/game_test.py`: 63 rule checks + 74 on the table; `--autoplay` soaks (40 random, 60 computer shots, no ball lost) |
+| Game | Plays to the rules: breaks, fouls, skittles, last ball, clock, score limit, 1–4 players or the computer | `godot/tools/game_test.py`: 63 rule checks + 81 on the table; `--autoplay` soaks (40 random, 60 computer shots, no ball lost) |
 | Web build | Loads, plays a shot, the computer replies, in Chromium | `godot/e2e/web_smoke.py` (headless, SwiftShader); the owner has played it once |
 | VR | **Never run** | — |
 | **Anything printed** | **No** | — |
@@ -84,11 +84,16 @@ Everything below this line is speculation until a plate comes off.
       back in the tray (E, or a button) — all done. Still for a human to judge: the
       power range, whether the pocket help is too much or too little
       (`POCKET_REACH`, `POCKET_PULL` in game.gd), and touch on a phone.
-- [ ] **Side spin, and aim-then-power.** The two ideas worth taking from
-      Shadowfetch Pool (MIT): a torque impulse for side, and aiming with
-      the mouse while setting power separately (wheel, or a held button).
-      The aim guide's 90° rule is only exact without spin, so spin needs
-      the guide to say so.
+- [x] **Spin.** The player picks where the tip strikes (a ball face in the
+      corner, or W A S D); `game.strike()` turns it into spin and the felt
+      friction does the rest. Tested: top spin follows on, back spin draws
+      back, side changes the angle off a cushion. The aim guide fades its
+      after-contact lines when there is spin rather than predicting curves.
+      Check side is weaker than running side, because a plain ball already
+      slides along the cushion. Not done: swerve (no cue elevation), squirt.
+- [ ] **Let the computer use spin.** It always strikes the centre.
+- [ ] **Aim-then-power.** From Shadowfetch Pool (MIT): aim with the mouse,
+      set power separately (wheel, or a held button).
 - [ ] **Try VR.** `scripts/xr_rig.gd` is written against OpenXR and falls
       back cleanly when no runtime answers — which is all that has ever been
       tested. Needs a headset. Expect the cue to be the hard part: pointing

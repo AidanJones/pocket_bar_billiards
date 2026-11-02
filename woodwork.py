@@ -39,6 +39,8 @@ FULL_SHEET = (2440.0, 1220.0)
 BITS = tuple(range(8, 31)) + (32, 35, 38, 40, 45, 50, 51, 54, 57, 60, 64, 67, 70, 76)
 #: A bed resting on the frame and battens needs a little room; ply moves.
 WOOD_GAP = 1.0
+#: How the frame goes together: housings and mitres, or plain butt joints.
+JOINTS = ("housed", "butt")
 
 
 def _sheet(at_least: float) -> float:
@@ -68,8 +70,11 @@ class Wood:
     (0 = front cushion nose, +Y away from the player), Z up (0 = desk).
     """
 
-    def __init__(self, design: T.Design):
+    def __init__(self, design: T.Design, joints: str = "housed"):
+        if joints not in JOINTS:
+            raise SystemExit(f"joints must be one of: {', '.join(JOINTS)}")
         self.design = design
+        self.joints = joints
         d = self.d = design.dims
         B = self.ball = d.ball
 
@@ -129,6 +134,33 @@ class Wood:
         span = 50 * self.ramp_t                         # hardboard sags past ~50 x its thickness
         self.bearers = 2 + max(0, math.ceil(inner / span) - 1)
 
+        # -- joints -----------------------------------------------------------
+        # "housed": the cross pieces sit in cuts in the side walls, half the
+        # wall deep, so the frame squares itself and the glue is on long
+        # grain. The apron and the front beam share one housing: the gate
+        # slot between them is only a few mm, and two housings would leave a
+        # sliver of ply between them that breaks. A filler ripped to the slot
+        # width goes in the housing between them and sets the slot exactly.
+        # The rails meet in mitres. "butt": everything glued face to edge.
+        self.housed = joints == "housed"
+        self.j = self.wall_t / 2 if self.housed else 0.0
+        self.beam_h = self.zt - self.zp + self.beam_drop
+
+    def joint_cuts(self):
+        """Cuts in the inside face of each side wall, mirrored left and right:
+        (what, from_front, width, bottom, top), Y from the wall's front end,
+        Z from its bottom edge. All `self.j` deep."""
+        if not self.housed:
+            return []
+        f = lambda y: y - self.y_lip0                                # noqa: E731
+        beam_bot = self.zp - self.beam_drop
+        return [
+            ("rebate for the tray lip", f(self.y_lip0), self.wall_t, 0.0, self.lip_h),
+            ("housing for the apron, gate slot and front beam", f(self.y_ap0),
+             self.y_fb1 - self.y_ap0, beam_bot, self.zt),
+            ("rebate for the back wall", f(self.y_bw0), self.wall_t, 0.0, self.zt),
+        ]
+
     def ramp_z(self, y: float) -> float:
         """Top of the ramp board at Y: it lies on the desk at the lip, then rises."""
         return self.ramp_t + max(0.0, y - self.y_lip1) * self.tan
@@ -159,21 +191,22 @@ class Wood:
         ply = lambda t: f"{t:g} mm birch ply"                     # noqa: E731
         bed_len = self.y_pf1 - self.y_pf0
         ramp_len = (self.y_bw0 - self.y_lip1) / math.cos(math.radians(d.slope))
-        beam_h = self.zt - self.zp + self.beam_drop
-        between = 2 * self.xi                          # fits between the side walls
+        beam_h = self.beam_h
+        between = 2 * self.xi                          # between the side walls
+        across = between + 2 * self.j                  # ...and into their housings
+        fit = "into the side walls' housings" if self.housed else "between the side walls"
         out = [
             Cut("bed", 1, f"{self.bed_t:g} mm MDF or birch ply", self.bed_t, 2 * self.p, bed_len,
                 f"{len(self.design.holes)} holes, {self.bit:g} mm; the face that gets the felt up"),
             Cut("side wall", 2, ply(self.wall_t), self.wall_t, self.zt, self.y_bw1 - self.y_lip0,
                 "full length, desk to the bed top"),
-            Cut("back wall", 1, ply(self.wall_t), self.wall_t, self.zt, between,
-                "between the side walls"),
-            Cut("front beam", 1, ply(self.wall_t), self.wall_t, beam_h, between,
-                "top flush with the bed top; balls pass under it"),
-            Cut("apron", 1, ply(self.wall_t), self.wall_t, beam_h, between,
-                f"{self.slot:g} mm in front of the front beam: that gap is the gate slot"),
-            Cut("tray lip", 1, ply(self.wall_t), self.wall_t, self.lip_h, between,
-                "front of the tray"),
+            Cut("back wall", 1, ply(self.wall_t), self.wall_t, self.zt, across, fit),
+            Cut("front beam", 1, ply(self.wall_t), self.wall_t, beam_h, across,
+                f"{fit}; top flush with the bed top, balls pass under it"),
+            Cut("apron", 1, ply(self.wall_t), self.wall_t, beam_h, across,
+                f"{fit}; {self.slot:g} mm in front of the front beam: that gap is the gate slot"),
+            Cut("tray lip", 1, ply(self.wall_t), self.wall_t, self.lip_h, across,
+                f"{fit}; front of the tray"),
             Cut("ramp", 1, f"{self.ramp_t:g} mm hardboard", self.ramp_t, between - 2 * self.batten,
                 ramp_len, "smooth face up; the tray is its front end"),
             Cut("ramp bearer", self.bearers, "softwood strip", self.batten, self.bearer_h1,
@@ -184,11 +217,17 @@ class Wood:
             Cut("end ledge", 2, "softwood strip", self.batten, self.batten,
                 between - 2 * self.batten, "on the back wall and the back of the front beam"),
             Cut("side rail", 2, "hardwood strip", self.rail_h, self.rail_w,
-                self.y_bw1 - self.y_fb0, "cord groove on the inside face; covers the wall top"),
-            Cut("end rail", 2, "hardwood strip", self.rail_h, self.rail_w, 2 * self.x_face,
-                "front and back; fits between the side rails"),
+                self.y_bw1 - self.y_fb0, "cord groove on the inside face; covers the wall top"
+                + ("; mitred 45 deg both ends, long-point length" if self.housed else "")),
+            Cut("end rail", 2, "hardwood strip", self.rail_h, self.rail_w,
+                2 * self.xo if self.housed else 2 * self.x_face,
+                "front and back; " + ("mitred 45 deg both ends, long-point length"
+                                      if self.housed else "fits between the side rails")),
             Cut("foot strip", 2, "softwood strip", self.batten, d.flange,
                 self.y_bw1 - self.y_lip0, "outside the foot of each side wall: clamp on these"),
+            *([Cut("slot filler", 2, "strip ripped from the frame ply", self.slot, self.j,
+                   beam_h, f"exactly {self.slot:g} mm thick: sets the gate slot, in the housing "
+                   "between the apron and the front beam")] if self.housed else []),
             Cut("time-bar gate", 1, f"{self.gate_t:g} mm ply or acrylic", self.gate_t,
                 self.g_top - self.g_bot, self.g_w,
                 "drops into the slot; drill a finger hole near the top"),
@@ -216,6 +255,9 @@ def rules(w: Wood, rule) -> None:
     the design; these are the ones the change of material can break.
     """
     d, B = w.d, w.ball
+    if not w.housed:
+        report = rule
+        rule = lambda ok, msg: report(ok, msg.replace("wood:", "wood (butt joints):", 1))  # noqa: E731
     rule(w.bit >= B + 1.5, f"wood: {w.bit:g} mm bit is at least ball + 1.5")
     rule(w.bit <= 1.35 * B + 2, f"wood: {w.bit:g} mm bit is not a sinkhole (<= 1.35 x ball)")
     for score, x, y in w.design.holes:
@@ -248,6 +290,16 @@ def rules(w: Wood, rule) -> None:
          f"wood: the biggest panel ({big.name}) comes out of one {FULL_SHEET[0]:.0f} x "
          f"{FULL_SHEET[1]:.0f} sheet")
     rule(w.bearer_h1 > 0, "wood: the ramp bearers have height at the back")
+    if w.housed:
+        rule(w.j <= w.wall_t / 2 + 1e-9, f"wood: housings {w.j:g} mm deep leave half the side wall")
+        cuts = sorted(w.joint_cuts(), key=lambda c: c[1])
+        webs = [b[1] - (a[1] + a[2]) for a, b in zip(cuts, cuts[1:])]
+        rule(min(webs) >= w.wall_t,
+             f"wood: at least {min(webs):.1f} mm of side wall between housings (>= its thickness)")
+        rule(abs((w.y_fb0 - w.y_ap1) - w.slot) < 1e-9 and w.g_w / 2 <= w.xi - WOOD_GAP / 2,
+             "wood: the slot filler sets the gate slot and stays out of the gate's way")
+        rule(abs(cuts[-1][1] + cuts[-1][2] - (w.y_bw1 - w.y_lip0)) < 1e-9,
+             "wood: the back wall's rebate is at the end of the side wall")
 
 
 # ------------------------------------------------------------------ output
@@ -317,6 +369,8 @@ def guide(w: Wood) -> str:
         f"- A saw that cuts straight (table saw or track saw; a fine handsaw and a guide at this size{'' if B < 30 else ' is hard work'})",
         f"- A {w.bit:g} mm {'Forstner bit' if w.bit <= 35 else 'hole saw'} and a drill stand or a guide block - the holes must be square",
         f"- A {w.groove_w:g} mm groove: a straight router bit, or saw kerfs, for the cord",
+        *([f"- A router with a fence (or a table saw dado set) for the {w.j:g} mm deep housings,",
+           "  and a mitre saw or mitre box for the rail corners"] if w.housed else []),
         "- Clamps, a square, a sharp knife for the felt",
         "",
         "## Cut list",
@@ -333,6 +387,30 @@ def guide(w: Wood) -> str:
         "",
         "Also in `wood/cut_list.csv`.",
         "",
+    ]
+    if w.housed:
+        lines += [
+            "## Joints in the side walls",
+            "",
+            "Cut in the **inside** face of both side walls - a left and a right, so",
+            f"lay them face to face and mark both at once. Every cut is {w.j:g} mm deep",
+            "(half the wall). Measured from the wall's front (player's) end and its",
+            "bottom edge:",
+            "",
+            "| Cut | From the front end | Width | From the bottom | To |",
+            "|---|---|---|---|---|",
+        ]
+        for what, at, width, z0, z1 in w.joint_cuts():
+            lines.append(f"| {what} | {at:.1f} | {width:.1f} | {z0:.1f} | {z1:.1f} |")
+        lines += [
+            "",
+            "The rebates run out of the wall's end; the housing runs out of the top",
+            "edge and stops at the bottom of the beams, so nothing shows below it.",
+            "Square up the stopped end with a chisel, or round the ends of the beam",
+            "and apron to match the router bit.",
+            "",
+        ]
+    lines += [
         "## Marking out the bed",
         "",
         "From the bed's **front-left corner** (the player's end, on your left), with",
@@ -357,11 +435,19 @@ def guide(w: Wood) -> str:
         "   edge of each hole with fine paper - a sharp edge throws the ball off.",
         f"2. **Rails.** Rip them {w.rail_w:.0f} mm wide and {w.rail_h:.1f} mm tall. Cut the cord",
         f"   groove in the inside face: {w.groove_w:g} mm wide, {w.groove_depth:.1f} mm deep,",
-        f"   centred {w.groove_z:.1f} mm above the rail's underside. Cut the end rails",
-        "   to fit between the side rails.",
-        "3. **Frame.** Glue the back wall between the side walls at the far end,",
-        "   then the front beam, the apron (with a strip of the gate stock as a",
-        f"   spacer, so the slot is {w.slot:g} mm), and the tray lip. Check it is square.",
+        f"   centred {w.groove_z:.1f} mm above the rail's underside. "
+        + ("Mitre the four rails to\n   length at 45 degrees, groove inside, and dry-fit them as a frame;\n"
+           "   the cord ends meet in the corners." if w.housed else
+           "Cut the end rails\n   to fit between the side rails."),
+        *([f"3. **Frame.** Cut the joints in the side walls (the table above). Rip two",
+           f"   slot fillers to exactly {w.slot:g} mm - try the gate between them - and",
+           "   glue one into each side wall's housing, centred. Then dry-fit: back wall",
+           "   and tray lip in their rebates, apron and front beam in the housing either",
+           "   side of the filler. Glue it all up at once and measure the diagonals.",
+           ] if w.housed else [
+           "3. **Frame.** Glue the back wall between the side walls at the far end,",
+           "   then the front beam, the apron (with a strip of the gate stock as a",
+           f"   spacer, so the slot is {w.slot:g} mm), and the tray lip. Check it is square."]),
         f"4. **Ramp.** Taper the {w.bearers} bearers from nothing at the front to",
         f"   {w.bearer_h1:.1f} mm at the back - a straight line, which is the {d.slope:g} degree",
         "   slope. Stand them on the desk inside the frame, one glued against each",
@@ -381,7 +467,8 @@ def guide(w: Wood) -> str:
         "8. **Cushions.** Glue the cord into the grooves with a bead of silicone",
         "   or contact adhesive, stretched only enough to lie straight.",
         "9. **Rails on.** Glue the side rails over the wall tops and the bare edge",
-        "   of the bed, then the end rails between them. The cord should just",
+        "   of the bed, then the end rails "
+        + ("into the mitres" if w.housed else "between them") + ". The cord should just",
         "   touch the edge of the felt.",
         f"10. **Gate.** Cut it {w.g_w:.0f} x {w.g_top - w.g_bot:.0f} mm; it should drop into the",
         "   slot freely and stand clear of the ramp by a millimetre.",
@@ -411,11 +498,36 @@ def drawing(w: Wood, path: str) -> None:
     from matplotlib.patches import Circle, Polygon, Rectangle
 
     d, B = w.d, w.ball
-    fig = plt.figure(figsize=(14, 9))
-    grid = fig.add_gridspec(2, 2, width_ratios=[1.0, 1.7], height_ratios=[1.0, 1.25])
+    rows = 3 if w.housed else 2
+    fig = plt.figure(figsize=(14, 9 + 2.5 * (rows - 2)))
+    grid = fig.add_gridspec(rows, 2, width_ratios=[1.0, 1.7],
+                            height_ratios=[1.0, 0.8, 1.25] if w.housed else [1.0, 1.25])
     plan = fig.add_subplot(grid[:, 0])
     whole = fig.add_subplot(grid[0, 1])
-    front = fig.add_subplot(grid[1, 1])
+    front = fig.add_subplot(grid[rows - 1, 1])
+    if w.housed:
+        wall = fig.add_subplot(grid[1, 1])
+        length = w.y_bw1 - w.y_lip0
+        wall.add_patch(Rectangle((0, 0), length, w.zt, fc="#e3c493", ec="#333", lw=0.8))
+        for i, (what, at, width, z0, z1) in enumerate(w.joint_cuts()):
+            wall.add_patch(Rectangle((at, z0), width, z1 - z0, fc="#a07a4a", ec="#333",
+                                     lw=0.6, hatch="////"))
+            right = at > length / 2
+            wall.annotate(f"{what}\n{width:.1f} wide, {z0:.1f} to {z1:.1f} up,\n"
+                          f"starts {at:.1f} from the front end",
+                          xy=(at + width / 2, (z0 + z1) / 2),
+                          # The two front cuts are close together: one label low, one high.
+                          xytext=(at + width / 2 + (-0.06 if right else 0.06 + 0.12 * i) * length,
+                                  -0.2 * w.zt - (0.0 if i else 0.5 * w.zt)),
+                          fontsize=6.5, ha="right" if right else "left", va="top",
+                          arrowprops=dict(arrowstyle="-", lw=0.4, color="0.3"))
+        wall.text(length / 2, w.zt + 2, f"Side wall, inside face (make a left and a right): "
+                  f"every cut {w.j:g} mm deep", ha="center", va="bottom", fontsize=9)
+        wall.text(0, w.zt + 2, "player's end", fontsize=7, va="bottom")
+        wall.set_xlim(-10, length + 10)
+        wall.set_ylim(-1.15 * w.zt, w.zt * 1.35)
+        wall.set_aspect("equal")
+        wall.axis("off")
 
     # -- plan: the bed board, from its front-left corner --------------------
     bw, bl = 2 * w.p, w.y_pf1 - w.y_pf0
@@ -452,12 +564,25 @@ def drawing(w: Wood, path: str) -> None:
                   arrowprops=dict(arrowstyle="<->", lw=0.7))
     plan.text(-2.6 * small, bl / 2, f"{bl:.1f}", ha="right", va="center", rotation=90,
               fontsize=8)
+    if w.housed:                                  # the rail frame over the bed, mitred
+        rx0, ry0 = w.p - w.xo, w.y_fb0 - w.y_pf0
+        rx1, ry1 = w.p + w.xo, w.y_bw1 - w.y_pf0
+        ix0, iy0 = w.p - w.x_face, -d.cord / 2 - w.y_pf0
+        ix1, iy1 = w.p + w.x_face, d.length + d.cord / 2 - w.y_pf0
+        for (ox, oy), (inx, iny) in (((rx0, ry0), (ix0, iy0)), ((rx1, ry0), (ix1, iy0)),
+                                     ((rx0, ry1), (ix0, iy1)), ((rx1, ry1), (ix1, iy1))):
+            plan.plot([ox, inx], [oy, iny], color="#6b4a2b", lw=0.8)
+        plan.add_patch(Rectangle((rx0, ry0), rx1 - rx0, ry1 - ry0, fc="none", ec="#6b4a2b",
+                                 lw=0.8, ls="--"))
+        plan.text(rx1, ry1 + small * 0.3, "rails, mitred (dashed)", fontsize=6, ha="right",
+                  va="bottom", color="#6b4a2b")
     plan.plot([0], [0], "s", color="#c0392b", ms=6)
     plan.text(small, small, "0, 0", fontsize=7, color="#c0392b")
     plan.set_title(f"Bed: {w.bed_t:g} mm, holes {w.bit:g} mm. Centres (x, y) from the\n"
                    "front-left corner; green is the felt, player at the bottom", fontsize=9)
-    plan.set_xlim(-6 * small, bw + 4 * small)
-    plan.set_ylim(-6 * small, bl + 2 * small)
+    out = w.xo - w.p                              # how far the rails reach past the bed
+    plan.set_xlim(-6 * small - out, bw + 4 * small + out)
+    plan.set_ylim(-6 * small - (w.y_pf0 - w.y_fb0), bl + 3 * small + out)
     plan.set_aspect("equal")
     plan.axis("off")
 
@@ -538,12 +663,15 @@ def main(argv=None) -> int:
     ap = bb.parser()
     ap.set_defaults(size="large", out="wood")
     ap.add_argument("--previews", default="previews", help="where the drawing goes")
+    ap.add_argument("--joints", default="housed", choices=JOINTS,
+                    help="housed = rebates, housings and mitred rails (default); "
+                         "butt = everything glued face to edge, for a saw and nothing else")
     args = ap.parse_args(argv)
     # Nothing here is printed, so the printed parts' plate size must not get
     # in the way (a league table's bed is wider than any printer).
     args.bed = args.bed or 5000.0
     design = bb.build(args)
-    w = Wood(design)
+    w = Wood(design, args.joints)
     fails = []
     rules(w, lambda ok, msg: None if ok else fails.append(msg))
     if fails:

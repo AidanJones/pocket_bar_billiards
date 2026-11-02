@@ -24,13 +24,14 @@ than scaling these numbers by hand.
 | Material | How much |
 |---|---|
 | 9 mm MDF or birch ply | 0.14 m² of parts (buy a piece with room to spare) |
-| 9 mm birch ply | 0.11 m² of parts (buy a piece with room to spare) |
+| 9 mm birch ply | 0.12 m² of parts (buy a piece with room to spare) |
 | 3 mm hardboard | 0.16 m² of parts (buy a piece with room to spare) |
 | 3 mm ply or acrylic | 0.02 m² of parts (buy a piece with room to spare) |
 | softwood strip 9 x 30 mm | 1.72 m |
 | softwood strip 9 x 9 mm | 1.55 m |
-| hardwood strip 15 x 20 mm | 1.58 m |
+| hardwood strip 15 x 20 mm | 1.66 m |
 | softwood strip 9 x 15 mm | 1.18 m |
+| strip ripped from the frame ply 4 x 4 mm | 0.04 m |
 | Silicone cord, 4 mm | 1.6 m (cushions) |
 | Balls, 15.88 mm | 7 white + 1 red |
 | Felt (billiard cloth, or craft felt) | the playing area plus 20 mm all round |
@@ -48,6 +49,8 @@ they fall when touched.
 - A saw that cuts straight (table saw or track saw; a fine handsaw and a guide at this size)
 - A 20 mm Forstner bit and a drill stand or a guide block - the holes must be square
 - A 4 mm groove: a straight router bit, or saw kerfs, for the cord
+- A router with a fence (or a table saw dado set) for the 4.5 mm deep housings,
+  and a mitre saw or mitre box for the rail corners
 - Clamps, a square, a sharp knife for the felt
 
 ## Cut list
@@ -58,20 +61,39 @@ Width is the short side of a panel; for strips it is thickness x width.
 |---|---|---|---|---|---|---|
 | bed | 1 | 9 mm MDF or birch ply | 9.0 | 290.8 | 497.6 | 9 holes, 20 mm; the face that gets the felt up |
 | side wall | 2 | 9 mm birch ply | 9.0 | 66.6 | 590.4 | full length, desk to the bed top |
-| back wall | 1 | 9 mm birch ply | 9.0 | 66.6 | 292.8 | between the side walls |
-| front beam | 1 | 9 mm birch ply | 9.0 | 18.0 | 292.8 | top flush with the bed top; balls pass under it |
-| apron | 1 | 9 mm birch ply | 9.0 | 18.0 | 292.8 | 4 mm in front of the front beam: that gap is the gate slot |
-| tray lip | 1 | 9 mm birch ply | 9.0 | 18.7 | 292.8 | front of the tray |
+| back wall | 1 | 9 mm birch ply | 9.0 | 66.6 | 301.8 | into the side walls' housings |
+| front beam | 1 | 9 mm birch ply | 9.0 | 18.0 | 301.8 | into the side walls' housings; top flush with the bed top, balls pass under it |
+| apron | 1 | 9 mm birch ply | 9.0 | 18.0 | 301.8 | into the side walls' housings; 4 mm in front of the front beam: that gap is the gate slot |
+| tray lip | 1 | 9 mm birch ply | 9.0 | 18.7 | 301.8 | into the side walls' housings; front of the tray |
 | ramp | 1 | 3 mm hardboard | 3.0 | 274.8 | 573.2 | smooth face up; the tray is its front end |
 | ramp bearer | 3 | softwood strip | 9.0 | 30.0 | 572.4 | tapered from nothing at the front to 30.0 mm at the back |
 | side ledge | 2 | softwood strip | 9.0 | 9.0 | 499.6 | glued inside each side wall, top at the bed's underside |
 | end ledge | 2 | softwood strip | 9.0 | 9.0 | 274.8 | on the back wall and the back of the front beam |
-| side rail | 2 | hardwood strip | 15.5 | 20.0 | 517.6 | cord groove on the inside face; covers the wall top |
-| end rail | 2 | hardwood strip | 15.5 | 20.0 | 270.8 | front and back; fits between the side rails |
+| side rail | 2 | hardwood strip | 15.5 | 20.0 | 517.6 | cord groove on the inside face; covers the wall top; mitred 45 deg both ends, long-point length |
+| end rail | 2 | hardwood strip | 15.5 | 20.0 | 310.8 | front and back; mitred 45 deg both ends, long-point length |
 | foot strip | 2 | softwood strip | 9.0 | 15.0 | 590.4 | outside the foot of each side wall: clamp on these |
+| slot filler | 2 | strip ripped from the frame ply | 4.0 | 4.5 | 18.0 | exactly 4 mm thick: sets the gate slot, in the housing between the apron and the front beam |
 | time-bar gate | 1 | 3 mm ply or acrylic | 3.0 | 85.0 | 290.8 | drops into the slot; drill a finger hole near the top |
 
 Also in `wood/cut_list.csv`.
+
+## Joints in the side walls
+
+Cut in the **inside** face of both side walls - a left and a right, so
+lay them face to face and mark both at once. Every cut is 4.5 mm deep
+(half the wall). Measured from the wall's front (player's) end and its
+bottom edge:
+
+| Cut | From the front end | Width | From the bottom | To |
+|---|---|---|---|---|
+| rebate for the tray lip | 0.0 | 9.0 | 0.0 | 18.7 |
+| housing for the apron, gate slot and front beam | 59.8 | 22.0 | 48.6 | 66.6 |
+| rebate for the back wall | 581.4 | 9.0 | 0.0 | 66.6 |
+
+The rebates run out of the wall's end; the housing runs out of the top
+edge and stops at the bottom of the beams, so nothing shows below it.
+Square up the stopped end with a chisel, or round the ends of the beam
+and apron to match the router bit.
 
 ## Marking out the bed
 
@@ -107,11 +129,14 @@ front edge, and prick through the centres.
    edge of each hole with fine paper - a sharp edge throws the ball off.
 2. **Rails.** Rip them 20 mm wide and 15.5 mm tall. Cut the cord
    groove in the inside face: 4 mm wide, 2.2 mm deep,
-   centred 11.1 mm above the rail's underside. Cut the end rails
-   to fit between the side rails.
-3. **Frame.** Glue the back wall between the side walls at the far end,
-   then the front beam, the apron (with a strip of the gate stock as a
-   spacer, so the slot is 4 mm), and the tray lip. Check it is square.
+   centred 11.1 mm above the rail's underside. Mitre the four rails to
+   length at 45 degrees, groove inside, and dry-fit them as a frame;
+   the cord ends meet in the corners.
+3. **Frame.** Cut the joints in the side walls (the table above). Rip two
+   slot fillers to exactly 4 mm - try the gate between them - and
+   glue one into each side wall's housing, centred. Then dry-fit: back wall
+   and tray lip in their rebates, apron and front beam in the housing either
+   side of the filler. Glue it all up at once and measure the diagonals.
 4. **Ramp.** Taper the 3 bearers from nothing at the front to
    30.0 mm at the back - a straight line, which is the 3 degree
    slope. Stand them on the desk inside the frame, one glued against each
@@ -130,7 +155,7 @@ front edge, and prick through the centres.
 8. **Cushions.** Glue the cord into the grooves with a bead of silicone
    or contact adhesive, stretched only enough to lie straight.
 9. **Rails on.** Glue the side rails over the wall tops and the bare edge
-   of the bed, then the end rails between them. The cord should just
+   of the bed, then the end rails into the mitres. The cord should just
    touch the edge of the felt.
 10. **Gate.** Cut it 291 x 85 mm; it should drop into the
    slot freely and stand clear of the ramp by a millimetre.

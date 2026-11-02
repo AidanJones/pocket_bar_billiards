@@ -41,7 +41,7 @@ faithful *approximation* of a standard English table, not a copy of one.
 | `barbilliards.py` | CLI: build, validate, export STLs + `parts.csv` + `print_plan.md` + `layout.json`; plate packing; `--list`, `--fit`. |
 | `check.py` | Design-rule checks. Must pass, including `--all`. |
 | `render.py` | Software-rasterised previews, the layout plan, and the 1:1 A4 felt template PDF. |
-| `woodwork.py` | The same table as woodworking plans: cut list, marking out, build guide, drawing. Play geometry comes from `table.py`; only the construction (stock thicknesses, drill sizes, joints) is its own. Its `rules()` run inside `check.py`. |
+| `woodwork.py` | The same table as woodworking plans: cut list, marking out, build guide, drawing. Play geometry comes from `table.py`; only the construction (stock thicknesses, drill sizes, joints: housed and mitred by default, `--joints butt`) is its own. Its `rules()` run inside `check.py`. |
 | `gltf.py` | The same model as a `.glb` for the game, plus the JSON it needs. Life size by default. |
 | `godot/` | Godot 4.3 project: the browser/VR game with a computer player, the ball-return physics test, the rules tests (`tests/`), a browser end-to-end test (`e2e/`). See `godot/README.md`. |
 | `README.md` | Build guide for humans (BOM, print settings, assembly, rules). |

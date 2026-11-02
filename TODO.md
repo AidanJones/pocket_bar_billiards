@@ -147,8 +147,9 @@ Everything below this line is speculation until a plate comes off.
       sprung pawl would click. `prism` can draw a thin cantilever, but
       whether PLA will spring at that size is a print-and-see.
 - [x] **Woodworking plans.** `woodwork.py`: cut list, marking out, a
-      dimensioned drawing and a build guide, from the same model. Its rules
-      run in `check.py`, including `--all`.
+      dimensioned drawing and a build guide, from the same model, with
+      rebated and housed frame joints and mitred rails (or `--joints butt`).
+      Its rules run in `check.py`, including `--all`.
 - [ ] **Build the wooden table.** Like the printed one, it has never been made. The
       likeliest surprises: the bed's flatness on ledges alone at league
       size (18 mm ply across 888 mm may want a centre bearer, which must

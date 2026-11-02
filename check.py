@@ -259,7 +259,8 @@ def wood(design: T.Design, chk: Checker):
     """The same table built in wood (woodwork.py): the rules a change of
     material can break."""
     if not design.layout.get("coupon"):
-        W.rules(W.Wood(design), chk.rule)
+        for joints in W.JOINTS:
+            W.rules(W.Wood(design, joints), chk.rule)
 
 
 def sweep() -> int:

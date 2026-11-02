@@ -373,6 +373,12 @@ construction:
   clears the ball by 1.5 mm: 12 mm for the Mini, 16 for the Standard,
   20 for the Large, a 60 mm hole saw at league size.
 - **A sloped board, not wedges.** A hardboard ramp on tapered bearers.
+- **Proper joints.** The back wall and tray lip sit in rebates in the side
+  walls, the apron and front beam share a housing with a filler strip
+  between them that sets the gate slot exactly, and the rails meet in
+  mitres. The frame squares itself and the glue is on long grain.
+  `--joints butt` gives plain glued butt joints instead, if all you have is
+  a saw.
 - **Printed small parts.** Print the skittles, the cue tip and butt and the
   scoreboard (`python barbilliards.py`), or turn the skittles — the guide
   gives their sizes.
@@ -387,7 +393,8 @@ The build guide for the default size is [`wood/wood_plan.md`](wood/wood_plan.md)
 with the cut list in `wood/cut_list.csv`. The 1:1 felt template
 (`previews/felt_template_A4.pdf`) doubles as a drilling template; the
 guide says where to line it up. `check.py` applies the wooden build's own
-rules too (headroom, bit size, gate gaps, rail lap, sheet size).
+rules too, for both joint styles (headroom, bit size, gate gaps, rail lap,
+sheet size, and housings that leave enough wall between them).
 
 ## 11. Ideas
 

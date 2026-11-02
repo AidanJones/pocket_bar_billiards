@@ -7,8 +7,8 @@
 Catches the failures a headless Godot run cannot: an export that ships
 without the model, a renderer the browser will not start, a page error. It
 serves `web_export/`, waits for the game to log that the table loaded,
-clicks Play, drags back from the ball and lets go, and checks the shot was
-scored. Screenshots land in `web_export/e2e_*.png`.
+starts a game (Enter), drags back from the ball and lets go, checks the
+shot was scored, and waits for the computer to take its turn. Screenshots land in `web_export/e2e_*.png`.
 
 This file runs twice: on the host it starts the container; inside the
 container (`--inside`) it drives the browser.
@@ -75,8 +75,10 @@ def inside() -> int:
         page.screenshot(path="/web/e2e_menu.png")
         ok = loaded
         if loaded:
-            # Play is centred, a little below the middle (see hud.gd).
-            page.mouse.click(640, 482)
+            # Focus the canvas well clear of the menu, then Enter plays
+            # with the menu's defaults (hud.gd) — you against the computer.
+            page.mouse.click(640, 30)
+            page.keyboard.press("Enter")
             page.wait_for_timeout(2500)
             # The ball waits in the D, low and centred in the player's view;
             # drag back towards the player and let go.
@@ -90,6 +92,11 @@ def inside() -> int:
             ok = wait_for("[shot]", 40)
             page.wait_for_timeout(1000)
             page.screenshot(path="/web/e2e_after.png")
+            # Unless the shot potted something, the computer plays next.
+            if ok and not any("[shot] +" in line for line in logs):
+                ok = wait_for("[ai]", 40)
+                page.wait_for_timeout(1500)
+                page.screenshot(path="/web/e2e_computer.png")
         browser.close()
     server.shutdown()
 

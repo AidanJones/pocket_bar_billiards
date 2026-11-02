@@ -15,14 +15,18 @@ extends Node3D
 ## runs the shot cycle around it.
 ##
 ## Command-line (after `--`): `--smoke` runs the ball-return test,
-## `--autoplay [--shots N] [--minutes M]` plays random shots headless and
-## checks no ball is ever lost, `--screenshot PATH` saves a frame and quits.
+## `--scenarios` runs the game's rule scenarios (tests/test_game.gd),
+## `--autoplay [--shots N] [--minutes M] [--cpu]` plays random shots (or the
+## computer's) headless and checks no ball is ever lost, `--start
+## [--players N] [--cpu] [--limit S]` skips the menu, `--rules` opens the
+## rules, `--screenshot PATH` saves a frame and quits.
 
 const TableLoaderScript := preload("res://scripts/table_loader.gd")
 const CueScript := preload("res://scripts/cue.gd")
 const XRRigScript := preload("res://scripts/xr_rig.gd")
 const RulesScript := preload("res://scripts/rules.gd")
 const HudScript := preload("res://scripts/hud.gd")
+const AIScript := preload("res://scripts/ai.gd")
 
 @export var bed_height := 0.75    ## metres from the floor to the playing bed
 @export var ball_mass := 0.21     ## kg, about a real bar billiards ball
@@ -46,8 +50,19 @@ const REST_HOLD := 0.5            ## ...for this long before a shot is over
 const SHOT_LIMIT := 25.0          ## seconds; a shot never takes longer
 const LOST_AFTER := 3.0           ## seconds still outside the tray = stuck
 const SKITTLE_DOWN := 20.0        ## degrees of lean that counts as knocked over
+## The holes are the printed size (1.2 balls), which on screen, with no feel
+## for pace, is unforgiving. A ball whose centre comes within this much of a
+## hole's edge is drawn gently towards the middle, as if the felt sagged
+## into it. This is the game's only help; the model's holes are unchanged.
+const POCKET_REACH := 0.45        ## ball radii beyond the hole's edge
+const POCKET_PULL := 2.5          ## m/s^2 towards the hole's centre
+## The felt has its own collision layer, so a ball over a hole can stop
+## touching it (see _build_felt).
+const FELT_LAYER := 2
 
 enum State { MENU, AIM, ROLLING, WAITING, OVER }
+
+signal racked                     ## the table is seated and ready to play
 
 var layout: Dictionary = {}
 var table: Node3D
@@ -60,6 +75,10 @@ var hud: CanvasLayer
 var state := State.MENU
 var gate_down := false
 var time_left := 0.0
+var ai: Node
+var last_outcome := {}            ## the most recent shot's rules result, for tests
+var last_shot := {}
+var shots := 0                    ## shots resolved this game
 
 var _gate_parts: Array = []
 var _on_felt := {}                ## ball -> in play on the bed
@@ -72,7 +91,9 @@ var _cameras: Array[Camera3D] = []
 var _camera := 0
 var _args := PackedStringArray()
 var _auto_shots := -1
+var _auto_limit := 0              ## with --cpu: stop after this many shots
 var _auto_wait := 0.0
+var _racked := false
 
 
 func _ready() -> void:
@@ -98,20 +119,47 @@ func _ready() -> void:
 	hud = HudScript.new()
 	add_child(hud)
 	hud.start_requested.connect(start_game)
-	hud.restart_requested.connect(func(): get_tree().reload_current_scene())
+	hud.restart_requested.connect(new_game)
+	ai = AIScript.new()
+	ai.name = "Computer"
+	ai.game = self
+	add_child(ai)
+	if "--scenarios" in _args:
+		hud.hide_menu()
+		# load, not preload: tests/ is left out of the web build.
+		var test: Node = load("res://tests/test_game.gd").new()
+		add_child(test)
+		test.run(self)
+		return
 	if "--start" in _args:
 		hud.hide_menu()
-		start_game(int(_arg("--players", "1")), float(_arg("--minutes", "5")))
+		start_game(_seats(), float(_arg("--minutes", "5")), int(_arg("--limit", "0")))
 	elif "--autoplay" in _args:
 		hud.hide_menu()
 		_auto_shots = int(_arg("--shots", "12"))
-		start_game(1, float(_arg("--minutes", "10")))
+		_auto_limit = _auto_shots
+		if "--cpu" in _args:
+			start_game([true], float(_arg("--minutes", "10")), 0)
+		else:
+			start_game([false], float(_arg("--minutes", "10")), 0)
 	elif XRRigScript.available():
 		var rig := XRRigScript.new()
 		rig.game = self
 		add_child(rig)
+	if "--rules" in _args:
+		hud.toggle_rules()
 	if "--screenshot" in _args:
 		_screenshot.call_deferred(_arg("--screenshot", "user://shot.png"))
+
+
+## `--players N`, the last of them the computer with `--cpu`.
+func _seats() -> Array:
+	var seats: Array = []
+	for i in range(clampi(int(_arg("--players", "1")), 1, 4)):
+		seats.append(false)
+	if "--cpu" in _args:
+		seats.append(true)
+	return seats.slice(0, 4)
 
 
 func _arg(flag: String, fallback: String) -> String:
@@ -196,6 +244,7 @@ func _build_table() -> void:
 	_build_skittles()
 	_build_desk()
 	_build_pockets()
+	_build_felt.call_deferred()
 	_draw_markings()
 
 
@@ -218,6 +267,9 @@ func _build_skittles() -> void:
 	for node in TableLoaderScript.parts_named(table, "skittle"):
 		var colour := "black" if "black" in String(node.name) else "white"
 		var body: RigidBody3D = TableLoaderScript.make_skittle(node, skittle_mass)
+		# Skittles stand on the bed itself: their hulls slowly sink into the
+		# felt box, where on the trimesh they stay put (tests/test_game.gd).
+		body.collision_mask = 1
 		body.freeze = true          # until _park_whites seats it on the bed
 		add_child(body)
 		skittles.append({"body": body, "home": body.global_transform, "colour": colour})
@@ -268,6 +320,42 @@ func _build_desk() -> void:
 ## to actually drop to reach it — one rolling past, even over the lip, never
 ## does. Balls rolling home along the ramp pass under other holes too, which
 ## is why a pot only counts for a ball that was in play on the felt.
+## The felt, as one flat box a felt's thickness deep on top of the bed.
+##
+## A ball rolling on the bed's trimesh catches the internal edges of its
+## triangles — a slab with nine holes in it is long thin triangles — and
+## each catch kicks it sideways: a straight shot drifted 4 cm in half a
+## metre, enough to miss every pot the aim guide promised. The felt is not
+## in the mesh anyway (it is glued on), so model it as what it is: a single
+## box has no internal edges. Its holes are made per ball: once a ball's
+## centre is over a hole it stops touching the felt (_tune) and drops onto
+## the hole's edge in the bed below, which is what tips it in on a real one.
+func _build_felt() -> void:
+	await get_tree().physics_frame
+	var d: Dictionary = layout["d_spot"]
+	var bed_top := _floor_below(d["x"], d["z"], bed_height + 0.05)
+	var depth := maxf(bed_height - bed_top, 0.001)
+	# Carried down into the solid slab below, so a fast ball meets something
+	# thicker than a felt; nothing ever reaches the inside of the slab.
+	var under := float(layout["surface_y"]) - float(layout["bed_underside_y"])
+	var thick := minf(depth + under * 0.6, under)
+	var body := StaticBody3D.new()
+	body.name = "Felt"
+	body.collision_layer = FELT_LAYER
+	body.collision_mask = 0
+	var shape := CollisionShape3D.new()
+	var slab := BoxShape3D.new()
+	slab.size = Vector3(float(layout["playing_width"]), thick, float(layout["playing_length"]))
+	shape.shape = slab
+	body.add_child(shape)
+	body.position = Vector3(0, bed_height - thick * 0.5, -float(layout["playing_length"]) * 0.5)
+	var cloth := PhysicsMaterial.new()
+	cloth.friction = 0.3
+	body.physics_material_override = cloth
+	add_child(body)
+	print("[table] felt %.1f mm on the bed" % (depth * 1000.0))
+
+
 func _build_pockets() -> void:
 	var r := float(layout["ball_radius"])
 	for hole in TableLoaderScript.hole_markers(layout):
@@ -314,6 +402,28 @@ func _draw_markings() -> void:
 	arc_view.material_override = chalk
 	add_child(arc_view)
 
+	# What each hole is worth, painted on the felt on the player's side of
+	# it — except the 200, whose near side is the black skittle's, so its
+	# number goes beside it.
+	for hole in TableLoaderScript.hole_markers(layout):
+		var value := Label3D.new()
+		value.text = str(hole["score"])
+		value.font_size = 64
+		value.outline_size = 12
+		value.pixel_size = float(layout["ball_radius"]) * 0.02
+		value.modulate = Color(0.95, 0.85, 0.45) if hole["score"] >= 100 else Color(0.92, 0.92, 0.86)
+		value.double_sided = false
+		# Tipped up towards the player: flat on the felt it is unreadable
+		# from the player's end, and upright it vanishes from overhead.
+		value.rotation_degrees = Vector3(-60, 0, 0)
+		var p: Vector3 = hole["position"]
+		var gap := float(layout["hole_radius"]) + float(layout["ball_radius"]) * 0.75
+		if hole["score"] == 200:
+			value.position = Vector3(p.x + gap * 1.5, y + 0.008, p.z)
+		else:
+			value.position = Vector3(p.x, y + 0.008, p.z + gap)
+		add_child(value)
+
 	var red: Dictionary = layout["red_spot"]
 	var spot := MeshInstance3D.new()
 	var dot := CylinderMesh.new()
@@ -332,6 +442,7 @@ func _ball(colour: Color, at: Vector3) -> RigidBody3D:
 	# A 48 mm ball moving at a few metres a second crosses its own radius in
 	# well under a tick, so sweep it rather than trusting discrete steps.
 	body.continuous_cd = true
+	body.collision_mask = 1 | FELT_LAYER
 	body.contact_monitor = true
 	body.max_contacts_reported = 4
 	var mat := PhysicsMaterial.new()
@@ -393,9 +504,10 @@ func _rack() -> void:
 ## bed they really stand on is a felt's thickness below `surface_y`.
 func _park_whites() -> void:
 	await get_tree().physics_frame
+	await get_tree().physics_frame          # ...and once more with the felt in
 	for s in skittles:
 		var home: Transform3D = s["home"]
-		home.origin.y = _floor_below(home.origin.x, home.origin.z, bed_height + 0.2)
+		home.origin.y = _floor_below(home.origin.x, home.origin.z, bed_height + 0.2, 1)
 		s["home"] = home
 		_teleport(s["body"], home)
 	var slot := 0
@@ -403,19 +515,71 @@ func _park_whites() -> void:
 		if b != red_ball:
 			_to_tray(b, slot)
 			slot += 1
+	_racked = true
+	racked.emit()
 
 
 # ------------------------------------------------------------- shot cycle
 
-func start_game(players: int, minutes: float) -> void:
-	rules.start(players)
-	time_left = minutes * 60.0
+## `seats`: one bool per player, true for the computer. `minutes` 0 = no
+## clock; `score_limit` 0 = none.
+func start_game(seats: Array, minutes: float, score_limit := 0) -> void:
+	if not _racked:
+		await racked
+	rules.start(seats, score_limit)
+	time_left = minutes * 60.0 if minutes > 0.0 else INF
 	set_gate(false)
+	rerack()
+	state = State.WAITING
 	_next_ball()
+
+
+## Back to the menu with a fresh table.
+func new_game() -> void:
+	get_tree().reload_current_scene()
+
+
+## The red on its spot, every white in the tray, the skittles up.
+func rerack() -> void:
+	var slot := 0
+	for b in balls:
+		if b == red_ball:
+			_spot_red()
+		else:
+			_to_tray(b, slot)
+			slot += 1
+	for s in skittles:
+		_teleport(s["body"], s["home"])
+	cue_ball = null
 
 
 func can_aim() -> bool:
 	return state == State.AIM and cue_ball != null
+
+
+## A person may aim: it is their turn, not the computer's.
+func human_turn() -> bool:
+	return can_aim() and not rules.computer[rules.current]
+
+
+func computer_turn() -> bool:
+	return can_aim() and rules.computer[rules.current] and not rules.over
+
+
+func on_felt(b: RigidBody3D) -> bool:
+	return _on_felt.get(b, false)
+
+
+## Put a ball in play on the bed at (x, z) — the tests set up shots with it.
+func put_on_felt(b: RigidBody3D, at: Vector2) -> void:
+	_teleport(b, Vector3(at.x, bed_height + float(layout["ball_radius"]), at.y))
+	_on_felt[b] = true
+	_still[b] = 0.0
+
+
+func _spot_red() -> void:
+	var spot: Dictionary = layout["red_spot"]
+	put_on_felt(red_ball, Vector2(spot["x"], spot["z"]))
 
 
 ## Play the ball in the D at this velocity. The cue calls this.
@@ -426,7 +590,12 @@ func strike(velocity: Vector3) -> void:
 	cue_ball.sleeping = false
 	cue_ball.angular_velocity = Vector3.ZERO
 	cue_ball.linear_velocity = velocity
-	_shot = {"played": cue_ball, "pots": [], "hit_any": false, "hit_red": false}
+	var others := 0
+	for b in balls:
+		if b != cue_ball and (_on_felt[b] or _in_tray(b)):
+			others += 1
+	_shot = {"played": cue_ball, "pots": [], "hit_any": false, "hit_red": false,
+		"side_cushion": false, "off_table": false, "last_ball": gate_down and others == 0}
 	_shot_time = 0.0
 	_rest_time = 0.0
 	state = State.ROLLING
@@ -464,25 +633,39 @@ func swap_ball() -> void:
 
 
 func _next_ball() -> void:
+	if rules.over:
+		_game_over()
+		return
+	var on_table: Array = []
+	for b in balls:
+		if _on_felt[b]:
+			on_table.append(b)
+	# A cleared table starts again like a new game: red on its spot, and the
+	# next shot must hit it. Wait for the red to come home if it is on its way.
+	if on_table.is_empty() and not (red_ball in _tray_balls()) and _returning():
+		state = State.WAITING
+		return
+	if on_table.is_empty() and red_ball in _tray_balls():
+		_spot_red()
+		rules.opening = true
+		hud.flash("Table clear: the red goes back on its spot.\nThe next shot must hit it.", 3.0)
+		on_table.append(red_ball)
 	var waiting := _tray_balls()
 	if waiting.is_empty():
 		if _returning():
 			state = State.WAITING          # one is on its way back; wait for it
 			return
-		if gate_down:
-			_game_over()
+		if on_table.is_empty():
+			_game_over()                   # the bar is down and nothing is left
 			return
-		# The bar is up but every ball is on the felt: nothing to play with.
-		# Gather them back up, red on its spot, and carry on.
-		hud.flash("Every ball is on the table: re-racking")
-		for b in balls:
-			if b == red_ball:
-				_on_felt[b] = true
-				_teleport(b, Vector3(layout["red_spot"]["x"], bed_height + float(layout["ball_radius"]),
-					layout["red_spot"]["z"]))
-			else:
-				_to_tray(b)
-		state = State.WAITING
+		# Every ball is on the table, none to play with: the one nearest
+		# the D is picked up and played from it.
+		var d: Dictionary = layout["d_spot"]
+		var spot := Vector3(d["x"], bed_height, d["z"])
+		on_table.sort_custom(func(a, b): return a.global_position.distance_to(spot) < b.global_position.distance_to(spot))
+		hud.flash("Every ball is in play: the one nearest the D is played", 3.0)
+		_on_felt[on_table[0]] = false
+		_play_from_tray(on_table[0])
 		return
 	# Whites first; the red is played from the D like any other once potted.
 	waiting.sort_custom(func(a, b): return a != red_ball and b == red_ball)
@@ -508,7 +691,7 @@ func _physics_process(delta: float) -> void:
 		_tune(b, delta)
 	if state == State.MENU or state == State.OVER:
 		return
-	if not gate_down:
+	if not gate_down and time_left < INF:
 		time_left -= delta
 		if time_left <= 0.0:
 			set_gate(true)
@@ -532,7 +715,9 @@ func _tune(b: RigidBody3D, delta: float) -> void:
 	b.angular_damp = FELT_SPIN_DAMP if on_bed else 0.0
 	var v := b.linear_velocity
 	v.y = 0.0
+	b.collision_mask = 1 if _over_hole(b.global_position) else 1 | FELT_LAYER
 	if on_bed and not b.freeze:
+		_pocket_pull(b)
 		if v.length() > FELT_DRAG * delta:
 			b.apply_central_force(-v.normalized() * FELT_DRAG * b.mass)
 		elif v.length() > 0.0:
@@ -541,6 +726,13 @@ func _tune(b: RigidBody3D, delta: float) -> void:
 	# Anything that leaves the world, or sticks in the return, goes home.
 	if b.freeze and not _on_felt[b]:
 		return                      # not racked yet
+	if _on_felt[b] and _off_table(b.global_position):
+		# Jumped a cushion: a foul, and the ball goes back to the tray.
+		if state == State.ROLLING and not _shot.get("off_table", false):
+			_shot["off_table"] = true
+			hud.flash("Off the table!", 1.2)
+		_to_tray(b)
+		return
 	if b.global_position.y < 0.2:
 		_to_tray(b)
 		_on_felt[b] = false
@@ -552,6 +744,26 @@ func _tune(b: RigidBody3D, delta: float) -> void:
 			_to_tray(b)
 	else:
 		_still[b] = 0.0
+
+
+## Is a ball's centre over a hole in the felt?
+func _over_hole(p: Vector3) -> bool:
+	var reach := float(layout["hole_radius"])
+	for hole in layout["holes"]:
+		if Vector2(float(hole["x"]) - p.x, float(hole["z"]) - p.z).length() < reach:
+			return true
+	return false
+
+
+func _pocket_pull(b: RigidBody3D) -> void:
+	var r := float(layout["ball_radius"])
+	var reach := float(layout["hole_radius"]) + r * POCKET_REACH
+	for hole in layout["holes"]:
+		var to := Vector2(float(hole["x"]) - b.global_position.x, float(hole["z"]) - b.global_position.z)
+		if to.length() < reach and to.length() > 1e-4:
+			var pull := to.normalized() * POCKET_PULL * b.mass
+			b.apply_central_force(Vector3(pull.x, 0, pull.y))
+			return
 
 
 func _watch_shot(delta: float) -> void:
@@ -581,26 +793,41 @@ func _end_shot() -> void:
 	for b in balls:
 		if not _on_felt[b]:
 			continue
-		if not _over_bed(b.global_position) or b.global_position.y < bed_height:
-			_on_felt[b] = false                     # jumped off; it'll be fetched
-		elif b == played and not _shot["hit_any"]:
+		if _off_table(b.global_position):
+			_to_tray(b)                             # jumped off
+		elif b.global_position.y < bed_height:
+			_on_felt[b] = false                     # down a hole; it rolls home
+		elif b == played and not _shot["hit_any"] and not _shot["last_ball"]:
 			_to_tray(b)                             # touched nothing: taken off
 		elif b.global_position.z > float(layout["baulk_z"]) + r:
 			_to_tray(b)                             # left in baulk: taken off
 			notes.append("ball left in baulk returned")
+	_shot["table_empty"] = true
+	for b in balls:
+		if _on_felt[b]:
+			_shot["table_empty"] = false
 	var outcome: Dictionary = rules.resolve(_shot)
+	last_outcome = outcome
+	shots += 1
+	last_shot = _shot
 	var text: String = outcome["message"]
 	if not notes.is_empty():
 		text += "\n" + ", ".join(notes)
+	outcome["message"] = text
 	hud.flash(text)
 	print("[shot] %s" % text.replace("\n", " | "))
 	for s in skittles:
 		_teleport(s["body"], s["home"])
 	cue_ball = null
+	if outcome["won"]:
+		_game_over()
+		return
 	_next_ball()
 
 
 func _game_over() -> void:
+	if state == State.OVER:
+		return
 	rules.finish()
 	state = State.OVER
 	hud.show_over(rules)
@@ -621,7 +848,11 @@ func _on_pocket(body: Node, score: int) -> void:
 
 
 func _on_contact(other: Node, ball: RigidBody3D) -> void:
-	if state != State.ROLLING or ball != _shot.get("played") or not (other is RigidBody3D and other in balls):
+	if state != State.ROLLING or ball != _shot.get("played"):
+		return
+	if other is StaticBody3D and String(other.get_parent().name).begins_with("rail_side"):
+		_shot["side_cushion"] = true
+	if not (other is RigidBody3D and other in balls):
 		return
 	_shot["hit_any"] = true
 	if other == red_ball:
@@ -640,6 +871,13 @@ func _knocked(s: Dictionary) -> bool:
 func _over_bed(p: Vector3) -> bool:
 	return (absf(p.x) <= float(layout["playing_width"]) * 0.5
 		and p.z <= 0.0 and p.z >= -float(layout["playing_length"]))
+
+
+## Clear of the bed, past the cushions: not in play, not down a hole.
+func _off_table(p: Vector3) -> bool:
+	var r := float(layout["ball_radius"])
+	return (absf(p.x) > float(layout["playing_width"]) * 0.5 + r
+		or p.z > r or p.z < -float(layout["playing_length"]) - r)
 
 
 func _in_tray(b: RigidBody3D) -> bool:
@@ -690,9 +928,9 @@ func _to_tray(b: RigidBody3D, slot := -1) -> void:
 
 
 ## The first solid surface below a point, ignoring anything that moves.
-func _floor_below(x: float, z: float, from_y: float) -> float:
+func _floor_below(x: float, z: float, from_y: float, mask := 0xFFFFFFFF) -> float:
 	var query := PhysicsRayQueryParameters3D.create(
-		Vector3(x, from_y, z), Vector3(x, 0.0, z))
+		Vector3(x, from_y, z), Vector3(x, 0.0, z), mask)
 	var skip: Array[RID] = []
 	for b in balls:
 		skip.append(b.get_rid())
@@ -746,7 +984,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				_camera = (_camera + 1) % _cameras.size()
 				_cameras[_camera].current = true
 			KEY_TAB:
-				swap_ball()
+				if human_turn():
+					swap_ball()
+			KEY_R:
+				hud.toggle_rules()
+			KEY_N:
+				new_game()
 	elif event is InputEventMouseButton and event.pressed:
 		var cam: Camera3D = _cameras[_camera]
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -774,6 +1017,10 @@ func _autoplay(delta: float) -> void:
 	if _auto_shots == 0:
 		_auto_report()
 		return
+	if computer_turn():
+		if shots >= _auto_limit:
+			_auto_report()
+		return                      # the computer plays its own shots
 	_auto_shots -= 1
 	var angle := randf_range(-0.35, 0.35)
 	var cue: Node = get_node("Cue")
@@ -788,8 +1035,8 @@ func _auto_report() -> void:
 	for b in balls:
 		if not is_instance_valid(b) or b.global_position.y < 0.2:
 			lost += 1
-	print("[autoplay] score %s, break %d, %d ball(s) lost, %d in tray, bar %s" % [
-		rules.totals, rules.break_score, lost, _tray_balls().size(),
+	print("[autoplay] %d shots, score %s, break %d, %d ball(s) lost, %d in tray, bar %s" % [
+		shots, rules.totals, rules.break_score, lost, _tray_balls().size(),
 		"down" if gate_down else "up"])
 	get_tree().quit(1 if lost > 0 else 0)
 

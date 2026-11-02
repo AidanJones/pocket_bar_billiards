@@ -3,12 +3,17 @@ extends CanvasLayer
 ## Scoreboard, messages and the start / game-over panels. Built in code like
 ## the rest of the scene, and kept dumb: game.gd tells it what to show.
 
-signal start_requested(players: int, minutes: float)
+signal start_requested(seats: Array, minutes: float, score_limit: int)
 signal restart_requested
 
+const RulesScript := preload("res://scripts/rules.gd")
 const INK := Color(0.96, 0.94, 0.86)
 const ACCENT := Color(0.95, 0.75, 0.30)
-const TIMES := [3.0, 5.0, 10.0]
+## Who plays: one bool per seat, true for the computer.
+const LINEUPS := {"Solo": [false], "vs Computer": [false, true], "2 players": [false, false],
+	"3 players": [false, false, false], "4 players": [false, false, false, false]}
+const TIMES := [3.0, 5.0, 10.0, 15.0, 0.0]          ## 0 = no clock
+const LIMITS := [0, 500, 1000, 2000, 5000]          ## 0 = none
 
 var _board := Label.new()
 var _clock := Label.new()
@@ -19,8 +24,11 @@ var _board_box: PanelContainer
 var _menu: PanelContainer
 var _over: PanelContainer
 var _over_text := Label.new()
-var _players := 1
+var _rules_panel: PanelContainer
+var _menu_behind := false
+var _lineup := "vs Computer"
 var _minutes := 5.0
+var _limit := 0
 var _flash_left := 0.0
 
 
@@ -55,7 +63,7 @@ func _ready() -> void:
 	_help.offset_top = -34
 	_help.offset_left = 16
 	_help.text = ("drag back from the ball and release to shoot  ·  right-drag or "
-		+ "arrows: move in the D  ·  Tab: change ball  ·  C: camera  ·  wheel: zoom")
+		+ "arrows: move in the D  ·  Tab: change ball  ·  C: camera  ·  wheel: zoom  ·  R: rules")
 	add_child(_help)
 
 	_power.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -73,8 +81,24 @@ func _ready() -> void:
 	_power.add_theme_stylebox_override("fill", fill)
 	add_child(_power)
 
+	# Always there once the game is on: the rules, and a way out.
+	var corner := HBoxContainer.new()
+	corner.anchor_left = 1.0
+	corner.anchor_right = 1.0
+	corner.offset_left = -260
+	corner.offset_right = -20
+	corner.offset_top = 56
+	corner.alignment = BoxContainer.ALIGNMENT_END
+	corner.add_theme_constant_override("separation", 8)
+	corner.add_child(_button("Rules (R)", 15, toggle_rules))
+	corner.add_child(_button("New game (N)", 15, func(): restart_requested.emit()))
+	add_child(corner)
+
 	_menu = _build_menu()
 	add_child(_menu)
+	_rules_panel = _build_rules()
+	_rules_panel.visible = false
+	add_child(_rules_panel)
 	_over = _build_over()
 	_over.visible = false
 	add_child(_over)
@@ -90,13 +114,19 @@ func show_board(rules: RefCounted, seconds_left: float, in_tray: int, bar_down: 
 	_board_box.visible = true
 	var lines: Array[String] = []
 	for i in range(rules.players):
-		var mark := "▶ " if i == rules.current and rules.players > 1 else ""
-		var who := "Player %d" % (i + 1) if rules.players > 1 else "Score"
+		var mark := ""
+		if rules.players > 1:
+			mark = "> " if i == rules.current else "   "
+		var who: String = rules.names[i] if rules.players > 1 else "Score"
 		lines.append("%s%s   %d" % [mark, who, rules.totals[i]])
 	lines.append("Break   %d" % rules.break_score)
 	lines.append("Balls in tray   %d" % in_tray)
+	if rules.target > 0:
+		lines.append("First to %d" % rules.target)
 	_board.text = "\n".join(lines)
-	if bar_down:
+	if seconds_left == INF and not bar_down:
+		_clock.text = ""
+	elif bar_down:
 		_clock.text = "BAR DOWN"
 		_clock.add_theme_color_override("font_color", Color(0.95, 0.35, 0.3))
 	else:
@@ -107,6 +137,26 @@ func show_board(rules: RefCounted, seconds_left: float, in_tray: int, bar_down: 
 
 func hide_menu() -> void:
 	_menu.visible = false
+
+
+func toggle_rules() -> void:
+	# Opened from the menu, it takes the menu's place until it is closed.
+	if _rules_panel.visible:
+		_rules_panel.visible = false
+		_menu.visible = _menu_behind
+	else:
+		_menu_behind = _menu.visible
+		_menu.visible = false
+		_rules_panel.visible = true
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	# Enter starts the game from the menu (the browser test uses it too).
+	if _menu.visible and event.is_pressed() and event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+		_start()
+		get_viewport().set_input_as_handled()
+	elif _rules_panel.visible and event.is_pressed() and event.keycode == KEY_ESCAPE:
+		toggle_rules()
 
 
 func flash(text: String, seconds := 2.5) -> void:
@@ -130,10 +180,15 @@ func show_over(rules: RefCounted) -> void:
 	var lines: Array[String] = ["Game over", ""]
 	if rules.players > 1:
 		for i in range(rules.players):
-			lines.append("Player %d   %d" % [i + 1, rules.totals[i]])
+			lines.append("%s   %d" % [rules.names[i], rules.totals[i]])
 		var w: int = rules.winner()
 		lines.append("")
-		lines.append("A draw!" if w < 0 else "Player %d wins" % (w + 1))
+		if w < 0:
+			lines.append("A draw!")
+		elif rules.names[w] == "You":
+			lines.append("You win!")
+		else:
+			lines.append("%s wins" % rules.names[w])
 	else:
 		lines.append("You scored %d" % rules.totals[0])
 	_over_text.text = "\n".join(lines)
@@ -159,20 +214,62 @@ func _build_menu() -> PanelContainer:
 	blurb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(blurb)
 
-	box.add_child(_choice(["1 player", "2 players"], 0, func(i): _players = i + 1))
+	var names: Array = LINEUPS.keys()
+	box.add_child(_choice(names, names.find(_lineup), func(i): _lineup = names[i]))
 	var labels: Array = []
 	for t in TIMES:
-		labels.append("%d min" % int(t))
+		labels.append("%d min" % int(t) if t > 0.0 else "No clock")
 	box.add_child(_choice(labels, TIMES.find(_minutes), func(i): _minutes = TIMES[i]))
+	labels = []
+	for limit in LIMITS:
+		labels.append("First to %d" % limit if limit > 0 else "No limit")
+	box.add_child(_choice(labels, LIMITS.find(_limit), func(i): _limit = LIMITS[i]))
 
-	var play := Button.new()
-	play.text = "Play"
-	play.add_theme_font_size_override("font_size", 24)
-	play.pressed.connect(func():
-		_menu.visible = false
-		start_requested.emit(_players, _minutes))
-	box.add_child(play)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	var play := _button("Play", 24, _start)
+	play.custom_minimum_size = Vector2(200, 0)
+	row.add_child(play)
+	row.add_child(_button("Rules", 24, toggle_rules))
+	box.add_child(row)
 	return panel
+
+
+func _start() -> void:
+	_menu.visible = false
+	start_requested.emit(LINEUPS[_lineup].duplicate(), _minutes, _limit)
+
+
+func _build_rules() -> PanelContainer:
+	var panel := _centre_panel()
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	panel.add_child(box)
+	var title := Label.new()
+	_style(title, 28)
+	title.text = "How to play"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+	var text := RichTextLabel.new()
+	text.bbcode_enabled = true
+	text.text = RulesScript.RULES_TEXT
+	text.custom_minimum_size = Vector2(640, 440)
+	text.add_theme_font_size_override("normal_font_size", 16)
+	text.add_theme_font_size_override("bold_font_size", 17)
+	text.add_theme_color_override("default_color", INK)
+	box.add_child(text)
+	box.add_child(_button("Close (Esc)", 18, toggle_rules))
+	return panel
+
+
+func _button(label: String, size: int, on_press: Callable) -> Button:
+	var b := Button.new()
+	b.text = label
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_font_size_override("font_size", size)
+	b.pressed.connect(on_press)
+	return b
 
 
 func _build_over() -> PanelContainer:
@@ -183,11 +280,7 @@ func _build_over() -> PanelContainer:
 	_style(_over_text, 26)
 	_over_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_over_text)
-	var again := Button.new()
-	again.text = "Play again"
-	again.add_theme_font_size_override("font_size", 22)
-	again.pressed.connect(func(): restart_requested.emit())
-	box.add_child(again)
+	box.add_child(_button("Play again", 22, func(): restart_requested.emit()))
 	return panel
 
 
@@ -204,7 +297,8 @@ func _choice(labels: Array, selected: int, on_pick: Callable) -> HBoxContainer:
 		b.button_group = group
 		b.button_pressed = i == selected
 		b.custom_minimum_size = Vector2(110, 0)
-		b.add_theme_font_size_override("font_size", 18)
+		b.focus_mode = Control.FOCUS_NONE
+		b.add_theme_font_size_override("font_size", 17)
 		b.pressed.connect(on_pick.bind(i))
 		row.add_child(b)
 	return row

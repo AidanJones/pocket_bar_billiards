@@ -23,6 +23,7 @@ OUT = GODOT / "screenshots"
 #: name -> the game's own arguments (after `--`); see the top of game.gd.
 SHOTS = {
     "menu": [],
+    "rules": ["--rules"],
     "aim": ["--start", "--aim"],
     "overhead": ["--autoplay", "--shots", "8", "--aim", "--camera", "1"],
 }

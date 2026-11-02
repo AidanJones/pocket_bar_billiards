@@ -2,7 +2,7 @@ extends Node3D
 
 ## Aiming and striking. Drag back from the ball, let go to play — like a
 ## slingshot, so the cue is drawn back as you pull. The same play() is used
-## by the mouse, the VR trigger and the autoplay test.
+## by the mouse, the VR trigger, the computer player and the autoplay test.
 ##
 ## While aiming, a sphere is swept along the line of the shot to find the
 ## first thing the ball would touch, and a ghost ball is drawn there. From
@@ -69,7 +69,9 @@ func setup(owner_game: Node3D) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if game == null or not game.can_aim():
+	if game != null and game.computer_turn():
+		return                      # the computer is using the cue
+	if game == null or not game.human_turn():
 		aiming = false
 		placing = false
 		return

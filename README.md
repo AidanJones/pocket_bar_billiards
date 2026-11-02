@@ -251,8 +251,11 @@ shared return: it is 20 pieces simpler and it is what a real table does.
 - Your break continues while you pot something each shot. Missing ends it.
 - Knock over a **white skittle**: you lose that break's score.
   Knock over the **black**: you lose your **whole score**.
-- Not hitting a ball at all, or a ball coming back behind the baulk line, is
-  a foul.
+- Not hitting a ball at all, or knocking a ball off the table, is a foul:
+  the break ends and its points are lost. A ball left behind the baulk line
+  goes back to the tray.
+- The first shot of the game, and the first after the table is cleared
+  (red back on its spot), must hit the red.
 - **Timing:** pub tables run ~15–17 minutes. Set a phone timer; when it
   goes, drop the **gate** in. Balls now stop under the table, so the game
   winds down. The last ball may only be potted into the 100 or 200, off a
@@ -305,21 +308,27 @@ python gltf.py                              # table.glb for the game
 python godot/tools/web_export.py --serve    # http://localhost:8070
 ```
 
-| | |
-|---|---|
-| ![start screen](godot/screenshots/menu.png) | ![from above, mid-game](godot/screenshots/overhead.png) |
+| | | |
+|---|---|---|
+| ![start screen](godot/screenshots/menu.png) | ![the rules, in the game](godot/screenshots/rules.png) | ![from above, mid-game](godot/screenshots/overhead.png) |
 
 **Playing.** Drag back from the ball and let go — the further you pull, the
 harder the shot (the bar goes green → amber → red). While you aim, a ghost
 ball shows where it will make contact, and lines show where the ball it hits
 will go and where yours will glance off. Right-drag or the arrow keys move
 your ball within the D, **Tab** swaps it for another from the tray, **C**
-switches to the overhead camera, the wheel zooms.
+switches to the overhead camera, the wheel zooms, **R** shows the rules and
+**N** starts a new game. Each hole's value is marked beside it.
 
-It plays the rules in §7: one or two players, breaks, the red doubling, the
-white and black skittle penalties, the opening shot on the red, misses and
-balls left in baulk going back to the tray, and a 3, 5 or 10 minute clock
-after which the bar drops and the game runs down.
+Play solo, against the computer, or two to four players; with a 3–15
+minute clock or none, after which the bar drops and the game runs down;
+and with a score limit (first to 500 … 5000) or none. It plays the rules
+in §7, including the last-ball rule once the bar is down. Every rule has a
+test, both on its own and played out on the table through the physics:
+
+```bash
+python godot/tools/game_test.py
+```
 
 It is also how the ball return gets tested without printing anything:
 

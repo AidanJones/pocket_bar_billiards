@@ -42,7 +42,7 @@ faithful *approximation* of a standard English table, not a copy of one.
 | `check.py` | Design-rule checks. Must pass, including `--all`. |
 | `render.py` | Software-rasterised previews, the layout plan, and the 1:1 A4 felt template PDF. |
 | `gltf.py` | The same model as a `.glb` for the game, plus the JSON it needs. Life size by default. |
-| `godot/` | Godot 4.3 project: the browser/VR game, the ball-return physics test, a browser end-to-end test (`e2e/`). See `godot/README.md`. |
+| `godot/` | Godot 4.3 project: the browser/VR game with a computer player, the ball-return physics test, the rules tests (`tests/`), a browser end-to-end test (`e2e/`). See `godot/README.md`. |
 | `README.md` | Build guide for humans (BOM, print settings, assembly, rules). |
 | `TODO.md` | What is done, what is unverified, what to do next. Read it before planning work. |
 | `stl/`, `stl_coupon/`, `previews/`, `godot/assets/`, `godot/screenshots/` | Generated, and committed so a clone is runnable. Never hand-edit; regenerate. (`godot/assets/table.glb.import` is the exception: hand-written, it keeps the `.glb` raw in the web build.) |
@@ -120,10 +120,18 @@ If you touched the game (`godot/scripts/`), also run the headless soak and
 the browser check, and refresh the README screenshots if it looks different:
 
 ```bash
-cd godot && docker compose run --rm godot --headless --quit-after 400000 -- --autoplay --shots 30
+python godot/tools/game_test.py      # every rule: unit tests, then played out on the table
+cd godot && docker compose run --rm godot --headless --fixed-fps 120 -- --autoplay --shots 30
 python godot/tools/web_export.py && python godot/e2e/web_smoke.py
 python godot/tools/screenshots.py
 ```
+
+If you change the felt physics in `game.gd` (damping, drag, bounce), the
+game tests will say the computer's pace model no longer fits; refit it from
+`-- --scenarios --calibrate` (constants at the top of `scripts/ai.gd`).
+A new rule goes in `rules.gd` (and its `RULES_TEXT`, which is what players
+read), with a case in `tests/test_rules.gd` and, if the table is involved,
+a scenario in `tests/test_game.gd`.
 
 The containers run as `$HOST_UID:$HOST_GID` (the Python tools set these;
 plain `docker compose` defaults to 1000).
@@ -316,8 +324,9 @@ Also keep: all sizes driven by `Spec`/`Dims`, splitting automatic, and
   front of Godot's solver, which is below what it handles reliably; the
   smoke test says so when it sees one. Real tables do not sort at all: they
   return every ball to one trough and the players keep score.
-- The game's rules (`godot/scripts/rules.gd`) lack the last-ball rule, and
-  no person has played the web build yet — only scripts have.
+- The game's rules (`godot/scripts/rules.gd`) leave out the real break
+  shot's three attempts and the "split shot". The computer player does not
+  yet foresee its own ball running on into a skittle.
 - The sorted return costs 20 extra pieces and a plate, which is why it is
   not the default.
 - No automatic timer (idea: ESP32 + micro servo dropping the gate after

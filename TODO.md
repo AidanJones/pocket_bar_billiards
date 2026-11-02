@@ -12,8 +12,8 @@ teach us the most, not by what is easiest.
 | Shared ball return | 9 of 9 balls reach the tray | Godot physics, life size |
 | Sorted ball return | 9 of 9 balls reach the right lane | Godot physics, life size |
 | Scoreboard | Geometry and fit checked | `check.py` rules 12 |
-| Game | Plays to the rules: breaks, skittles, timer, 1–2 players | `--autoplay` soak (40 shots, no ball lost); screenshots under Xvfb |
-| Web build | Loads and plays a shot in Chromium | `godot/e2e/web_smoke.py` (headless, SwiftShader) — no human has played it yet |
+| Game | Plays to the rules: breaks, fouls, skittles, last ball, clock, score limit, 1–4 players or the computer | `godot/tools/game_test.py`: 63 rule checks + 63 on the table; `--autoplay` soaks (40 random, 60 computer shots, no ball lost) |
+| Web build | Loads, plays a shot, the computer replies, in Chromium | `godot/e2e/web_smoke.py` (headless, SwiftShader); the owner has played it once |
 | VR | **Never run** | — |
 | **Anything printed** | **No** | — |
 
@@ -73,14 +73,16 @@ Everything below this line is speculation until a plate comes off.
       ("What making it playable found") lists them. The worst: an imported
       `.glb` is left out of the pack, so the build shipped without its table.
 - [x] **Add a browser end-to-end check.** `godot/e2e/web_smoke.py` loads the
-      export in Playwright's Chromium, clicks Play, drags a shot and checks
-      it was scored with no page errors. It caught the missing `.glb`.
-- [ ] **Have a person play the web build.** Everything above was driven by
-      scripts. Things only a human will judge: does the drag-to-shoot feel
-      right, is full power too much or too little, do skittles fall too
-      easily (random play drops one on about a third of shots, but random
-      play aims up the middle where the black stands), is touch usable on
-      a phone.
+      export in Playwright's Chromium, starts a game, drags a shot, checks
+      it was scored and that the computer replies, with no page errors. It
+      caught the missing `.glb`.
+- [ ] **More people playing the web build.** The owner's first go asked
+      for: turns passing on no score, a computer opponent, the rules in the
+      game, tests for every rule, up to four players, a score limit, a
+      reset, hole values on the felt, slightly easier pockets, and a rule
+      for a ball off the table — all done. Still for a human to judge: the
+      power range, whether the pocket help is too much or too little
+      (`POCKET_REACH`, `POCKET_PULL` in game.gd), and touch on a phone.
 - [ ] **Side spin, and aim-then-power.** The two ideas worth taking from
       Shadowfetch Pool (MIT): a torque impulse for side, and aiming with
       the mouse while setting power separately (wheel, or a held button).
@@ -92,10 +94,22 @@ Everything below this line is speculation until a plate comes off.
       a controller and pulling the trigger is a placeholder, not a cue
       action.
 - [x] **A rules engine.** `scripts/rules.gd`: breaks, the red doubling,
-      white/black skittle penalties, the opening shot on the red, misses and
-      balls left in baulk returned, one or two players, and a clock that
-      drops the bar. Not yet: the last-ball rule (only the 100 or 200, off a
-      side cushion), and the 2-player game has no handicap or turn timer.
+      fouls that lose the break (no ball hit, a ball off the table, a white
+      skittle, an opening shot that misses the red or clears the table), the
+      black skittle, the red re-spotted on a cleared table, every ball in
+      play, the last-ball rule, one to four players, a clock and a score
+      limit. Tested twice over: `tests/test_rules.gd` (no table) and
+      `tests/test_game.gd` (on the table, through the physics). Not yet: the
+      break shot's three attempts and the "split shot"; no handicap or turn
+      timer.
+- [x] **A computer player.** `scripts/ai.gd`: ghost-ball pots checked
+      against the physics space, a pace model fitted to the felt, and a
+      safe touch when there is no pot.
+- [ ] **Teach the computer about its own ball after contact.** It fouls
+      by running on into a white skittle (4 in 60 shots). Sweep the
+      tangent line from the ghost ball, as the aim guide already draws it.
+- [ ] **A skill setting in the menu.** `ai.skill_noise` is there; nothing
+      sets it but the tests.
 - [x] **Rack the balls properly.** Red on its spot, the rest in the tray,
       each shot played from the tray into the D.
 - [ ] **Use the rest of the model.** The game ignores `--variant full`

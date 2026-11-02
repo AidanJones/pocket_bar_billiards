@@ -12,6 +12,9 @@ The same model is also a game you can play in a browser — see
 
 ![lining up a shot in the browser game](godot/screenshots/aim.png)
 
+No printer, or want something bigger? The same table can be built in wood
+— see [§10](#10-build-it-in-wood).
+
 **Start here:** print the fit-test coupon (one plate, about an hour), check
 it, then print the Mini table.
 
@@ -343,7 +346,50 @@ python godot/tools/physics_test.py --return sorted
 drops a ball through all nine holes and tells you which lane each one ended
 up in. Needs Docker; `godot/README.md` has the detail.
 
-## 10. Ideas
+## 10. Build it in wood
+
+`woodwork.py` turns the same model into woodworking plans: a cut list, a
+marking-out table for the holes, a dimensioned plan and section, and step
+by step instructions.
+
+```bash
+python woodwork.py                          # Large (default) -> wood/, previews/wood_plan.png
+python woodwork.py --size standard          # any size, or --ball / --cord of your own
+python woodwork.py --ball 47.6 --cord 10    # a full-size league table, 926 x 1741 mm
+```
+
+![wooden build: bed marking out and section](previews/wood_plan.png)
+
+Everything the ball touches or needs room for — playing area, hole
+positions and size, cushion height, the headroom under the bed, the 3°
+return, the tray and the gate's gaps — comes from the same model as the
+printed table, so the two play the same. What changes is the
+construction:
+
+- **Stock you can buy.** The bed, frame and ramp are standard sheet
+  thicknesses (birch ply or MDF, hardboard for the ramp), picked by ball
+  size. The rails are ripped from hardwood, with the cord in a groove.
+- **Holes from real bits.** The smallest Forstner bit or hole saw that
+  clears the ball by 1.5 mm: 12 mm for the Mini, 16 for the Standard,
+  20 for the Large, a 60 mm hole saw at league size.
+- **A sloped board, not wedges.** A hardboard ramp on tapered bearers.
+- **Printed small parts.** Print the skittles, the cue tip and butt and the
+  scoreboard (`python barbilliards.py`), or turn the skittles — the guide
+  gives their sizes.
+
+| | Mini | Standard | Large (default) | League (`--ball 47.6`) |
+|---|---|---|---|---|
+| On the desk | 188 × 362 mm | 252 × 481 mm | 311 × 590 mm | 926 × 1741 mm |
+| Bed | 6 mm | 6 mm | 9 mm | 18 mm |
+| Holes | 12 mm | 16 mm | 20 mm | 60 mm hole saw |
+
+The build guide for the default size is [`wood/wood_plan.md`](wood/wood_plan.md),
+with the cut list in `wood/cut_list.csv`. The 1:1 felt template
+(`previews/felt_template_A4.pdf`) doubles as a drilling template; the
+guide says where to line it up. `check.py` applies the wooden build's own
+rules too (headroom, bit size, gate gaps, rail lap, sheet size).
+
+## 11. Ideas
 
 - Replace the manual gate with a micro servo and an ESP32 that drops it
   after 15 minutes. A coin slot is optional.

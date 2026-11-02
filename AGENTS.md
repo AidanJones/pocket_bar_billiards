@@ -41,11 +41,12 @@ faithful *approximation* of a standard English table, not a copy of one.
 | `barbilliards.py` | CLI: build, validate, export STLs + `parts.csv` + `print_plan.md` + `layout.json`; plate packing; `--list`, `--fit`. |
 | `check.py` | Design-rule checks. Must pass, including `--all`. |
 | `render.py` | Software-rasterised previews, the layout plan, and the 1:1 A4 felt template PDF. |
+| `woodwork.py` | The same table as woodworking plans: cut list, marking out, build guide, drawing. Play geometry comes from `table.py`; only the construction (stock thicknesses, drill sizes, joints) is its own. Its `rules()` run inside `check.py`. |
 | `gltf.py` | The same model as a `.glb` for the game, plus the JSON it needs. Life size by default. |
 | `godot/` | Godot 4.3 project: the browser/VR game with a computer player, the ball-return physics test, the rules tests (`tests/`), a browser end-to-end test (`e2e/`). See `godot/README.md`. |
 | `README.md` | Build guide for humans (BOM, print settings, assembly, rules). |
 | `TODO.md` | What is done, what is unverified, what to do next. Read it before planning work. |
-| `stl/`, `stl_coupon/`, `previews/`, `godot/assets/`, `godot/screenshots/` | Generated, and committed so a clone is runnable. Never hand-edit; regenerate. (`godot/assets/table.glb.import` is the exception: hand-written, it keeps the `.glb` raw in the web build.) |
+| `stl/`, `stl_coupon/`, `wood/`, `previews/`, `godot/assets/`, `godot/screenshots/` | Generated, and committed so a clone is runnable. Never hand-edit; regenerate. (`godot/assets/table.glb.import` is the exception: hand-written, it keeps the `.glb` raw in the web build.) |
 
 Dependencies: Python 3.10+, `numpy`, `matplotlib` (render only). The game
 needs Docker (Godot runs in a container; there is no native install and no
@@ -94,6 +95,9 @@ All three share one argument parser, so any option works on any of them:
 | `--coupon` | the small fit-test set instead of the table |
 | `--ball`, `--cord`, `--slope`, `--felt`, `--desk`, `--colour`, `--bed`, `--out` | overrides |
 | `--list`, `--fit` | show the profiles / which sizes fit this printer |
+
+If you change anything the ball touches, also run `python woodwork.py`:
+the wooden build reads the same `Dims`, and `wood/` is committed.
 
 Two extras: `python check.py --all` sweeps every size × variant × printer and
 is the real regression test; `python barbilliards.py --coupon` is what the
@@ -285,7 +289,7 @@ Also keep: all sizes driven by `Spec`/`Dims`, splitting automatic, and
 - Scale things by what actually drives them: ball size for play geometry,
   nozzle and layer height for printed-wall minimums, the desk for the
   mounting hardware. Say which in a comment when it isn't obvious.
-- Don't hand-edit anything in `stl/`, `stl_coupon/`, `previews/` or
+- Don't hand-edit anything in `stl/`, `stl_coupon/`, `wood/`, `previews/` or
   `godot/assets/`; regenerate. They are committed so a fresh clone runs
   without a toolchain, which means they have to be regenerated and
   committed with any change that moves the geometry.

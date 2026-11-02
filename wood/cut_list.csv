@@ -1,0 +1,15 @@
+part,qty,stock,thickness_mm,width_mm,length_mm,note
+bed,1,9 mm MDF or birch ply,9.0,290.8,497.6,"9 holes, 20 mm; the face that gets the felt up"
+side wall,2,9 mm birch ply,9.0,66.6,590.4,"full length, desk to the bed top"
+back wall,1,9 mm birch ply,9.0,66.6,292.8,between the side walls
+front beam,1,9 mm birch ply,9.0,18.0,292.8,top flush with the bed top; balls pass under it
+apron,1,9 mm birch ply,9.0,18.0,292.8,4 mm in front of the front beam: that gap is the gate slot
+tray lip,1,9 mm birch ply,9.0,18.7,292.8,front of the tray
+ramp,1,3 mm hardboard,3.0,274.8,573.2,smooth face up; the tray is its front end
+ramp bearer,3,softwood strip,9.0,30.0,572.4,tapered from nothing at the front to 30.0 mm at the back
+side ledge,2,softwood strip,9.0,9.0,499.6,"glued inside each side wall, top at the bed's underside"
+end ledge,2,softwood strip,9.0,9.0,274.8,on the back wall and the back of the front beam
+side rail,2,hardwood strip,15.5,20.0,517.6,cord groove on the inside face; covers the wall top
+end rail,2,hardwood strip,15.5,20.0,270.8,front and back; fits between the side rails
+foot strip,2,softwood strip,9.0,15.0,590.4,outside the foot of each side wall: clamp on these
+time-bar gate,1,3 mm ply or acrylic,3.0,85.0,290.8,drops into the slot; drill a finger hole near the top

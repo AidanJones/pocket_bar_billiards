@@ -18,6 +18,7 @@ import sys
 import barbilliards as bb
 import profiles as P
 import table as T
+import woodwork as W
 
 
 class Checker:
@@ -254,6 +255,13 @@ def run(design: T.Design, rows, chk: Checker):
                  * (len(design.cuts["playfield_y"]) - 1), "every playfield tile is emitted")
 
 
+def wood(design: T.Design, chk: Checker):
+    """The same table built in wood (woodwork.py): the rules a change of
+    material can break."""
+    if not design.layout.get("coupon"):
+        W.rules(W.Wood(design), chk.rule)
+
+
 def sweep() -> int:
     """Every size x variant x printer, quietly: just the failures."""
     bad = 0
@@ -275,6 +283,7 @@ def sweep() -> int:
                     continue
                 chk = Checker(verbose=False)
                 run(design, rows, chk)
+                wood(design, chk)
                 if chk.fails:
                     bad += 1
                     print(f"FAIL  {label}  {len(chk.fails)}/{chk.count}: {chk.fails[0]}")
@@ -295,6 +304,7 @@ def main(argv=None) -> int:
     rows = bb.measure(design)
     chk = Checker()
     run(design, rows, chk)
+    wood(design, chk)
     print(f"\n{len(chk.fails)} failure(s) in {chk.count} rules "
           f"({design.spec.size.key}, {design.spec.variant}, {design.spec.printer.key})")
     return 1 if chk.fails else 0

@@ -14,6 +14,7 @@ teach us the most, not by what is easiest.
 | Scoreboard | Geometry and fit checked | `check.py` rules 12 |
 | Game | Plays to the rules: breaks, fouls, skittles, last ball, clock, score limit, 1–4 players or the computer | `godot/tools/game_test.py`: 63 rule checks + 84 on the table; `--autoplay` soaks (40 random, 60 computer shots, no ball lost) |
 | Web build | Loads, plays a shot, the computer replies, in Chromium | `godot/e2e/web_smoke.py` (headless, SwiftShader); the owner has played it once |
+| Wooden build | Plans, cut list and drawing for any size; its own rules hold | `check.py` (and `--all`): bit size, headroom, gate gaps, rail lap, sheet size |
 | VR | **Never run** | — |
 | **Anything printed** | **No** | — |
 
@@ -145,6 +146,15 @@ Everything below this line is speculation until a plate comes off.
 - [ ] **A detent for the scoreboard markers.** They run on friction; a
       sprung pawl would click. `prism` can draw a thin cantilever, but
       whether PLA will spring at that size is a print-and-see.
+- [x] **Woodworking plans.** `woodwork.py`: cut list, marking out, a
+      dimensioned drawing and a build guide, from the same model. Its rules
+      run in `check.py`, including `--all`.
+- [ ] **Build the wooden table.** Like the printed one, it has never been made. The
+      likeliest surprises: the bed's flatness on ledges alone at league
+      size (18 mm ply across 888 mm may want a centre bearer, which must
+      not cross the return), and whether a sawn cord groove holds the cord.
+- [ ] **A league-size cushion for the wooden table.** Real tables use rubber cushion profiles,
+      not cord; `--cord 10` is a stand-in.
 
 ---
 

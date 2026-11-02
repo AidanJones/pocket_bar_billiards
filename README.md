@@ -312,8 +312,9 @@ python godot/tools/web_export.py --serve    # http://localhost:8070
 |---|---|---|
 | ![start screen](godot/screenshots/menu.png) | ![the rules, in the game](godot/screenshots/rules.png) | ![from above, mid-game](godot/screenshots/overhead.png) |
 
-**Playing.** Drag back from the ball and let go — the further you pull, the
-harder the shot (the bar goes green → amber → red). While you aim, a ghost
+**Playing.** Press, pull back and let go — the further you pull from where
+you pressed, the harder the shot (the bar goes green → amber → red). A click
+on its own does nothing; easing back, or a right-click, calls a shot off. While you aim, a ghost
 ball shows where it will make contact, and lines show where the ball it hits
 will go and where yours will glance off. Right-drag or the arrow keys move
 your ball within the D, **Tab** swaps it for another from the tray, **E**

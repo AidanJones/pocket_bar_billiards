@@ -1,7 +1,9 @@
 extends Node3D
 
 ## Aiming and striking. Drag back from the ball, let go to play — like a
-## slingshot, so the cue is drawn back as you pull. The same play() is used
+## slingshot, so the cue is drawn back as you pull. Power is only the pull
+## back after the press, so a click is never a shot by itself; easing back
+## towards the ball, or a right-click, calls the shot off. The same play() is used
 ## by the mouse, the VR trigger, the computer player and the autoplay test.
 ##
 ## While aiming, a sphere is swept along the line of the shot to find the
@@ -25,6 +27,11 @@ var aiming := false
 var placing := false
 var aim_from := Vector3.ZERO
 var aim_to := Vector3.ZERO
+## Where a person pressed to start aiming. Power is only what they pull back
+## from there, so a press away from the ball (just after clicking the spin
+## pad, say) is not already a hard shot that fires on release. Null for the
+## computer, which draws the cue straight back from the ball.
+var press_at: Variant = null
 
 var _line: MeshInstance3D
 var _mesh := ImmediateMesh.new()
@@ -75,6 +82,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if game == null or not game.human_turn():
 		aiming = false
 		placing = false
+		press_at = null
 		return
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
@@ -85,9 +93,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				aim_from = game.cue_ball.global_position
 				var hit: Variant = _bed_point(event.position)
 				aim_to = aim_from if hit == null else hit
+				press_at = aim_to
 			elif aiming:
 				aiming = false
 				_strike()
+				press_at = null
+		elif event.button_index == MOUSE_BUTTON_RIGHT and aiming:
+			aiming = false              # right-click while aiming calls it off
+			press_at = null
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			placing = event.pressed
 			if placing:
@@ -134,7 +147,13 @@ func _bed_point(screen: Vector2) -> Variant:
 func _pull() -> Vector3:
 	var pull := aim_from - aim_to
 	pull.y = 0.0
-	return pull
+	if press_at == null or pull.length() < 1e-6:
+		return pull
+	# Only the pull back since the press counts; back where it started (or
+	# nearer the ball), there is no shot, which is how to call one off.
+	var start: Vector3 = aim_from - (press_at as Vector3)
+	start.y = 0.0
+	return pull.normalized() * maxf(pull.length() - start.length(), 0.0)
 
 
 func power() -> float:

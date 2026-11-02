@@ -53,6 +53,7 @@ func _all() -> void:
 	await test_time_drops_bar()
 	await test_last_ball_wrong_hole()
 	await test_spin_controls()
+	await test_press_is_not_a_shot()
 	await test_follow_and_draw()
 	await test_side_off_a_cushion()
 	await test_pace_model()
@@ -469,6 +470,23 @@ func test_spin_controls() -> void:
 	game.set_spin(Vector2(0, 1))
 	eq(game.spin, Vector2.ZERO, "the computer's turn: no one to set it")
 	game.rules.computer[game.rules.current] = false
+
+
+## Pressing away from the ball and letting go without pulling back must not
+## play a shot (it used to: the press itself counted as a full pull).
+func test_press_is_not_a_shot() -> void:
+	await setup("a press without a pull back is not a shot")
+	var cue: Node = game.get_node("Cue")
+	var ball: Vector3 = game.cue_ball.global_position
+	cue.aim_from = ball
+	cue.press_at = ball + Vector3(0.3, 0, 0.2)
+	cue.aim_to = cue.press_at
+	eq(cue.power(), 0.0, "pressed 36 cm from the ball: no power yet")
+	cue.aim_to = cue.press_at + (cue.press_at - ball).normalized() * 0.2
+	expect(absf(cue.power() - 0.5) < 0.01, "pulled 20 cm further back: half power (%.2f)" % cue.power())
+	cue.aim_to = ball + Vector3(0.1, 0, 0.05)
+	eq(cue.power(), 0.0, "moved back towards the ball: called off")
+	cue.press_at = null
 
 
 func test_follow_and_draw() -> void:

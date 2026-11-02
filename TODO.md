@@ -12,7 +12,7 @@ teach us the most, not by what is easiest.
 | Shared ball return | 9 of 9 balls reach the tray | Godot physics, life size |
 | Sorted ball return | 9 of 9 balls reach the right lane | Godot physics, life size |
 | Scoreboard | Geometry and fit checked | `check.py` rules 12 |
-| Game | Plays to the rules: breaks, fouls, skittles, last ball, clock, score limit, 1–4 players or the computer | `godot/tools/game_test.py`: 63 rule checks + 81 on the table; `--autoplay` soaks (40 random, 60 computer shots, no ball lost) |
+| Game | Plays to the rules: breaks, fouls, skittles, last ball, clock, score limit, 1–4 players or the computer | `godot/tools/game_test.py`: 63 rule checks + 84 on the table; `--autoplay` soaks (40 random, 60 computer shots, no ball lost) |
 | Web build | Loads, plays a shot, the computer replies, in Chromium | `godot/e2e/web_smoke.py` (headless, SwiftShader); the owner has played it once |
 | VR | **Never run** | — |
 | **Anything printed** | **No** | — |

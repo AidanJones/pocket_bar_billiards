@@ -74,6 +74,7 @@ def inside() -> int:
         page.wait_for_timeout(3000)
         page.screenshot(path="/web/e2e_menu.png")
         ok = loaded
+        stray = False
         if loaded:
             # Focus the canvas well clear of the menu, then Enter plays
             # with the menu's defaults (hud.gd) — you against the computer.
@@ -81,6 +82,10 @@ def inside() -> int:
             page.keyboard.press("Enter")
             page.wait_for_timeout(2500)
             page.keyboard.press("w")            # a little top spin: the pad shows it
+            # A click away from the ball, with no pull back, is not a shot.
+            # A shot is only logged once the balls stop: give one time to.
+            page.mouse.click(420, 400)
+            stray = wait_for("[shot]", 12)
             # The ball waits in the D, low and centred in the player's view;
             # drag back towards the player and let go.
             page.mouse.move(640, 512)
@@ -106,8 +111,9 @@ def inside() -> int:
             print("  console:", line)
     for e in errors:
         print("  PAGE ERROR:", e)
-    print("table loaded:", loaded, "| shot resolved:", ok, "| page errors:", len(errors))
-    return 0 if ok and not errors else 1
+    print("table loaded:", loaded, "| shot resolved:", ok, "| stray click played a shot:", stray,
+          "| page errors:", len(errors))
+    return 0 if ok and not stray and not errors else 1
 
 
 if __name__ == "__main__":

@@ -55,7 +55,7 @@ When the clock runs out the bar drops: potted balls stay under the table and the
 If one is set, the first to reach it wins at once.
 
 [b]Controls[/b]
-Drag back from the ball and let go to shoot: the further, the harder. Right-drag or the arrow keys move the ball in the D. To put spin on it, click the ball face in the corner where the cue should strike, or use W A S D: top spin follows through, back spin draws the ball back, side changes the angle off a cushion. Spin is used for one shot, then goes back to the centre. Tab changes ball, E plays the red when it is in the tray (the red button does the same), C changes camera, the wheel zooms, R shows these rules."""
+Press and pull back, then let go to shoot: the further you pull, the harder. A click on its own does nothing; ease back to where you pressed, or right-click, to call a shot off. Right-drag or the arrow keys move the ball in the D. To put spin on it, click the ball face in the corner where the cue should strike, or use W A S D: top spin follows through, back spin draws the ball back, side changes the angle off a cushion. Spin is used for one shot, then goes back to the centre. Tab changes ball, E plays the red when it is in the tray (the red button does the same), C changes camera, the wheel zooms, R shows these rules."""
 
 var players := 1
 var names: Array[String] = ["Player 1"]

@@ -311,6 +311,69 @@ python gltf.py                              # table.glb for the game
 python godot/tools/web_export.py --serve    # http://localhost:8070
 ```
 
+### Building and running the browser game
+
+This works the same on Windows, macOS and Linux. You need:
+
+- Python 3.10 or newer;
+- Git;
+- Docker: Docker Desktop on Windows or macOS (on Windows, with the
+  WSL 2 backend it offers at install), or plain Docker on Linux.
+
+Godot runs inside Docker, so there is nothing else to install. The
+built game is not committed (`web_export/` is git-ignored), so build it
+once on each machine.
+
+1. **Start Docker Desktop**, and wait until it says the engine is running.
+2. **Get the code and the venv.** On Windows, in PowerShell:
+
+   ```powershell
+   git clone https://github.com/AidanJones/pocket_bar_billiards.git
+   cd pocket_bar_billiards
+   py -m venv .venv
+   .venv\Scripts\Activate.ps1
+   pip install -r requirements.txt
+   ```
+
+   If PowerShell refuses to run `Activate.ps1`, run
+   `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, then try
+   again. Or skip activating and call `.venv\Scripts\python` instead of
+   `python`. On macOS or Linux, use `python3 -m venv .venv` and
+   `source .venv/bin/activate`.
+3. **Build and serve it:**
+
+   ```bash
+   python godot/tools/web_export.py --serve
+   ```
+
+   This writes the table model, builds the Docker image, exports the game
+   to `web_export/` and serves it. The first run downloads Godot's web
+   export templates, about 1 GB, so it takes a few minutes. Docker keeps
+   them, so later builds take under a minute.
+4. **Play.** Open <http://localhost:8070> in Chrome, Edge or Firefox.
+5. **Stop it.** Press Ctrl-C in the terminal. If a container is left
+   running, `cd godot` and run `docker compose --profile web down`.
+
+After `git pull`, run step 3 again; the old build does not update itself.
+To serve a build you already have without rebuilding it:
+
+```bash
+cd godot
+docker compose --profile web up web-static     # http://localhost:8070
+```
+
+Some options for the export:
+
+- `--size mini|standard|large` picks the table, and is `standard` by
+  default.
+- `--return sorted` builds the per-hole return.
+
+The page has to come from a web server. Opening `web_export/index.html`
+straight from disk does not work, because browsers block the game's
+files over `file://`. If the game runs on another machine, forward the
+port, for example with `ssh -L 8070:localhost:8070 user@host`, and open
+the same address.
+
 | | | |
 |---|---|---|
 | ![start screen](godot/screenshots/menu.png) | ![the rules, in the game](godot/screenshots/rules.png) | ![from above, mid-game](godot/screenshots/overhead.png) |
